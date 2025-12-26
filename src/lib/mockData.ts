@@ -1,10 +1,10 @@
 import { Transaction, User, Department, FinancialSummary, ChartData } from '@/types';
 
 export const departments: Department[] = [
-  { id: '1', name: 'Direction', code: 'DIR' },
-  { id: '2', name: 'Opération', code: 'OPE' },
-  { id: '3', name: 'Commercial', code: 'COM' },
-  { id: '4', name: 'Administration', code: 'ADM' },
+  { id: '1', name: 'Direction', code: 'DIR', is_active: true },
+  { id: '2', name: 'Opération', code: 'OPE', is_active: true },
+  { id: '3', name: 'Commercial', code: 'COM', is_active: true },
+  { id: '4', name: 'Administration', code: 'ADM', is_active: true },
 ];
 
 export const categories = {
