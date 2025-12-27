@@ -19,11 +19,12 @@ const Users = () => {
     name: '',
     email: '',
     role: '' as AppRole,
+    title: '',
     department: '',
   });
 
   const handleAddUser = () => {
-    if (!formData.name || !formData.email || !formData.role) {
+    if (!formData.name || !formData.email || !formData.role || !formData.title) {
       toast({
         title: "Erreur",
         description: "Veuillez remplir tous les champs obligatoires.",
@@ -31,13 +32,13 @@ const Users = () => {
       });
       return;
     }
-    
+
     toast({
       title: "Utilisateur créé",
-      description: `${formData.name} a été ajouté avec le rôle ${roleLabels[formData.role].label}.`,
+      description: `${formData.name} a été ajouté avec le rôle ${roleLabels[formData.role].label} (${formData.title}).`,
     });
     setIsDialogOpen(false);
-    setFormData({ name: '', email: '', role: '' as AppRole, department: '' });
+    setFormData({ name: '', email: '', role: '' as AppRole, title: '', department: '' });
   };
 
   return (
@@ -86,27 +87,51 @@ const Users = () => {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Rôle</Label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(val) => setFormData({ ...formData, role: val as AppRole })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un rôle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="comptable">Comptable</SelectItem>
-                    <SelectItem value="raf">Responsable Administratif et Financier</SelectItem>
-                    <SelectItem value="cabinet">Cabinet Comptable</SelectItem>
-                    <SelectItem value="admin">Administrateur</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rôle</Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(val) => setFormData({ ...formData, role: val as AppRole })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrateur</SelectItem>
+                      <SelectItem value="comptable">Comptable</SelectItem>
+                      <SelectItem value="raf">Responsable Administratif et Financier</SelectItem>
+                      <SelectItem value="cabinet">Cabinet Comptable</SelectItem>
+                      <SelectItem value="auditeur">Auditeur (lecture seule)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Fonction</Label>
+                  <Select
+                    value={formData.title}
+                    onValueChange={(val) => setFormData({ ...formData, title: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une fonction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DG / PDG">DG / PDG</SelectItem>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                      <SelectItem value="Comptable">Comptable</SelectItem>
+                      <SelectItem value="RAF">RAF</SelectItem>
+                      <SelectItem value="Cabinet comptable">Cabinet comptable</SelectItem>
+                      <SelectItem value="Auditeur">Auditeur</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label>Département</Label>
-                <Select 
-                  value={formData.department} 
+                <Select
+                  value={formData.department}
                   onValueChange={(val) => setFormData({ ...formData, department: val })}
                 >
                   <SelectTrigger>

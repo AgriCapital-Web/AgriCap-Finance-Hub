@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield, CheckCircle } from 'lucide-react';
-import logoDark from '@/assets/logo-agricapital-dark.png';
+import logo from '@/assets/logo-agricapital-transparent.png';
 
 const InitSuperAdmin = () => {
   const [loading, setLoading] = useState(false);
@@ -130,7 +130,7 @@ const InitSuperAdmin = () => {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <img src={logoDark} alt="AgriCapital" className="h-16 w-auto" />
+              <img src={logo} alt="AGRICAPITAL FINANCE – logo" className="h-16 w-auto" />
             </div>
             <CardTitle className="text-xl text-primary">Super Admin Existe</CardTitle>
             <CardDescription>
@@ -179,7 +179,7 @@ const InitSuperAdmin = () => {
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={logoDark} alt="AgriCapital" className="h-16 w-auto" />
+            <img src={logo} alt="AGRICAPITAL FINANCE – logo" className="h-16 w-auto" />
           </div>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
