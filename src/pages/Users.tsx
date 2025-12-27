@@ -11,21 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { UserPlus, Mail, Shield, Trash2, Edit2, CheckCircle, XCircle } from 'lucide-react';
 import { mockUsers, departments } from '@/lib/mockData';
 import { toast } from '@/hooks/use-toast';
-import { UserRole } from '@/types';
-
-const roleLabels: Record<UserRole, { label: string; color: string }> = {
-  admin: { label: 'Administrateur', color: 'bg-primary text-primary-foreground' },
-  comptable: { label: 'Comptable', color: 'bg-blue-100 text-blue-700' },
-  raf: { label: 'RAF', color: 'bg-purple-100 text-purple-700' },
-  cabinet: { label: 'Cabinet Comptable', color: 'bg-amber-100 text-amber-700' },
-};
+import { AppRole, roleLabels } from '@/types';
 
 const Users = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: '' as UserRole,
+    role: '' as AppRole,
     department: '',
   });
 
@@ -44,7 +37,7 @@ const Users = () => {
       description: `${formData.name} a été ajouté avec le rôle ${roleLabels[formData.role].label}.`,
     });
     setIsDialogOpen(false);
-    setFormData({ name: '', email: '', role: '' as UserRole, department: '' });
+    setFormData({ name: '', email: '', role: '' as AppRole, department: '' });
   };
 
   return (
@@ -97,7 +90,7 @@ const Users = () => {
                 <Label>Rôle</Label>
                 <Select 
                   value={formData.role} 
-                  onValueChange={(val) => setFormData({ ...formData, role: val as UserRole })}
+                  onValueChange={(val) => setFormData({ ...formData, role: val as AppRole })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un rôle" />
