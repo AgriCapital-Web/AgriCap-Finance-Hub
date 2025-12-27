@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ArrowDownCircle, 
@@ -10,37 +10,64 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  BarChart3
+  BarChart3,
+  UsersRound,
+  Briefcase,
+  Menu,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import logo from '@/assets/logo-agricapital.png';
+import { useAuth } from '@/hooks/useAuth';
+import logoDark from '@/assets/logo-agricapital-dark.png';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Tableau de bord', path: '/' },
-  { icon: ArrowDownCircle, label: 'Entrées', path: '/income' },
-  { icon: ArrowUpCircle, label: 'Sorties', path: '/expenses' },
-  { icon: FileText, label: 'Transactions', path: '/transactions' },
-  { icon: BarChart3, label: 'Rapports', path: '/reports' },
-  { icon: Users, label: 'Utilisateurs', path: '/users' },
-  { icon: Settings, label: 'Paramètres', path: '/settings' },
+  { icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
+  { icon: ArrowDownCircle, label: 'Entrées', path: '/income', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
+  { icon: ArrowUpCircle, label: 'Sorties', path: '/expenses', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
+  { icon: FileText, label: 'Transactions', path: '/transactions', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
+  { icon: BarChart3, label: 'Rapports', path: '/reports', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
+  { icon: UsersRound, label: 'Associés', path: '/associates', roles: ['super_admin'] },
+  { icon: Briefcase, label: 'Intervenants', path: '/stakeholders', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
+  { icon: Users, label: 'Utilisateurs', path: '/users', roles: ['super_admin', 'admin'] },
+  { icon: Settings, label: 'Paramètres', path: '/settings', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
 ];
 
-export const Sidebar = () => {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarContentProps {
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+  onNavigate?: () => void;
+}
+
+const SidebarContent = ({ collapsed, setCollapsed, onNavigate }: SidebarContentProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, role, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const filteredMenuItems = menuItems.filter(item => 
+    !role || item.roles.includes(role)
+  );
+
+  const initials = profile?.full_name
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'U';
 
   return (
-    <aside 
-      className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-sidebar transition-all duration-300 ease-in-out flex flex-col",
-        collapsed ? "w-20" : "w-64"
-      )}
-    >
+    <>
       {/* Logo Section */}
       <div className="flex items-center justify-center h-20 border-b border-sidebar-border px-4">
         {!collapsed ? (
           <div className="flex items-center gap-3">
-            <img src={logo} alt="AgriCapital" className="h-12 w-auto object-contain brightness-0 invert" />
+            <img src={logoDark} alt="AgriCapital" className="h-12 w-auto object-contain" />
           </div>
         ) : (
           <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
@@ -51,12 +78,13 @@ export const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto scrollbar-thin">
-        {menuItems.map((item) => {
+        {filteredMenuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth group",
                 isActive 
@@ -78,27 +106,30 @@ export const Sidebar = () => {
         {!collapsed && (
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-              <span className="text-accent-foreground font-semibold text-sm">KJ</span>
+              <span className="text-accent-foreground font-semibold text-sm">{initials}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">K. Jacques</p>
-              <p className="text-xs text-sidebar-foreground/60">Administrateur</p>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{profile?.full_name || 'Utilisateur'}</p>
+              <p className="text-xs text-sidebar-foreground/60 capitalize">{role?.replace('_', ' ') || 'Non défini'}</p>
             </div>
           </div>
         )}
-        <button className={cn(
-          "flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-smooth",
-          collapsed && "justify-center"
-        )}>
+        <button 
+          onClick={handleSignOut}
+          className={cn(
+            "flex items-center gap-3 w-full px-4 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-smooth",
+            collapsed && "justify-center"
+          )}
+        >
           <LogOut className="h-5 w-5" />
           {!collapsed && <span className="font-medium">Déconnexion</span>}
         </button>
       </div>
 
-      {/* Toggle Button */}
+      {/* Toggle Button - Desktop only */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-24 w-6 h-6 bg-card border border-border rounded-full flex items-center justify-center shadow-md hover:bg-muted transition-smooth"
+        className="hidden lg:flex absolute -right-3 top-24 w-6 h-6 bg-card border border-border rounded-full items-center justify-center shadow-md hover:bg-muted transition-smooth"
       >
         {collapsed ? (
           <ChevronRight className="h-4 w-4 text-foreground" />
@@ -106,6 +137,47 @@ export const Sidebar = () => {
           <ChevronLeft className="h-4 w-4 text-foreground" />
         )}
       </button>
-    </aside>
+    </>
+  );
+};
+
+export const Sidebar = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile Menu Button */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="lg:hidden fixed top-4 left-4 z-50 bg-background shadow-md"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 w-64 bg-sidebar">
+          <div className="h-full flex flex-col">
+            <SidebarContent 
+              collapsed={false} 
+              setCollapsed={() => {}} 
+              onNavigate={() => setMobileOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Sidebar */}
+      <aside 
+        className={cn(
+          "hidden lg:flex fixed left-0 top-0 z-40 h-screen bg-sidebar transition-all duration-300 ease-in-out flex-col",
+          collapsed ? "w-20" : "w-64"
+        )}
+      >
+        <SidebarContent collapsed={collapsed} setCollapsed={setCollapsed} />
+      </aside>
+    </>
   );
 };
