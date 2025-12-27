@@ -18,19 +18,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import logoDark from '@/assets/logo-agricapital-dark.png';
+import logo from '@/assets/logo-agricapital-transparent.png';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
+  { icon: LayoutDashboard, label: 'Tableau de bord', path: '/dashboard', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: ArrowDownCircle, label: 'Entrées', path: '/income', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
   { icon: ArrowUpCircle, label: 'Sorties', path: '/expenses', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
   { icon: FileText, label: 'Transactions', path: '/transactions', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: BarChart3, label: 'Rapports', path: '/reports', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: UsersRound, label: 'Associés', path: '/associates', roles: ['super_admin'] },
   { icon: Briefcase, label: 'Intervenants', path: '/stakeholders', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
-  { icon: Users, label: 'Utilisateurs', path: '/users', roles: ['super_admin', 'admin'] },
+  { icon: Users, label: 'Utilisateurs', path: '/users', roles: ['super_admin'] },
   { icon: Settings, label: 'Paramètres', path: '/settings', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
 ];
 
@@ -67,7 +67,7 @@ const SidebarContent = ({ collapsed, setCollapsed, onNavigate }: SidebarContentP
       <div className="flex items-center justify-center h-20 border-b border-sidebar-border px-4">
         {!collapsed ? (
           <div className="flex items-center gap-3">
-            <img src={logoDark} alt="AgriCapital" className="h-12 w-auto object-contain" />
+            <img src={logo} alt="AGRICAPITAL FINANCE – logo" className="h-12 w-auto object-contain" />
           </div>
         ) : (
           <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
