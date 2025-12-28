@@ -317,6 +317,60 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onboarding_status: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          id: string
+          step_completed: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          id?: string
+          step_completed: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          id?: string
+          step_completed?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
