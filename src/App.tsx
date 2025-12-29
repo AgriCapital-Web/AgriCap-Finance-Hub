@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import Dashboard from "./pages/Dashboard";
 import Income from "./pages/Income";
 import Expenses from "./pages/Expenses";
@@ -14,6 +15,8 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Associates from "./pages/Associates";
 import Stakeholders from "./pages/Stakeholders";
+import Documents from "./pages/Documents";
+import Notifications from "./pages/Notifications";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import InitSuperAdmin from "./pages/InitSuperAdmin";
@@ -27,6 +30,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <PWAInstallPrompt />
         <BrowserRouter>
           <Routes>
             {/* Public routes */}
@@ -35,78 +39,17 @@ const App = () => (
             <Route path="/init-admin" element={<InitSuperAdmin />} />
 
             {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/income"
-              element={
-                <ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}>
-                  <Income />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/expenses"
-              element={
-                <ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}>
-                  <Expenses />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/transactions"
-              element={
-                <ProtectedRoute>
-                  <Transactions />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <Reports />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/users"
-              element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
-                  <Users />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/associates"
-              element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
-                  <Associates />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/stakeholders"
-              element={
-                <ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}>
-                  <Stakeholders />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/income" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Income /></ProtectedRoute>} />
+            <Route path="/expenses" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Expenses /></ProtectedRoute>} />
+            <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute requiredRoles={['super_admin']}><Users /></ProtectedRoute>} />
+            <Route path="/associates" element={<ProtectedRoute requiredRoles={['super_admin']}><Associates /></ProtectedRoute>} />
+            <Route path="/stakeholders" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Stakeholders /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

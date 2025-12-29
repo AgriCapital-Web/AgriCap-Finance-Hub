@@ -1,12 +1,13 @@
 import { MainLayout } from '@/components/layout/MainLayout';
-import { TransactionForm } from '@/components/transactions/TransactionForm';
-import { mockTransactions, formatCurrency } from '@/lib/mockData';
+import { ExpenseForm } from '@/components/transactions/ExpenseForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowUpCircle } from 'lucide-react';
+import { useTransactions } from '@/hooks/useTransactions';
+import { formatCurrency } from '@/lib/mockData';
 
 const Expenses = () => {
-  const expenseTransactions = mockTransactions.filter(t => t.type === 'expense');
-  const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const { transactions, refetch } = useTransactions({ type: 'expense' });
+  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <MainLayout 
@@ -14,12 +15,10 @@ const Expenses = () => {
       subtitle="Enregistrement des dépenses et décaissements"
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form */}
         <div className="lg:col-span-2">
-          <TransactionForm type="expense" />
+          <ExpenseForm onSuccess={refetch} />
         </div>
 
-        {/* Summary */}
         <div className="space-y-6">
           <Card className="bg-gradient-to-br from-red-50 to-red-100/50 border-red-200">
             <CardHeader>
@@ -31,14 +30,14 @@ const Expenses = () => {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-red-600">Total ce mois</p>
+                  <p className="text-sm text-red-600">Total</p>
                   <p className="text-3xl font-bold text-red-700">{formatCurrency(totalExpenses)}</p>
                 </div>
                 <div className="pt-4 border-t border-red-200">
                   <p className="text-sm text-red-600 mb-2">Dernières sorties</p>
-                  {expenseTransactions.slice(0, 3).map((t) => (
+                  {transactions.slice(0, 3).map((t) => (
                     <div key={t.id} className="flex justify-between py-2">
-                      <span className="text-sm text-red-700 truncate">{t.article}</span>
+                      <span className="text-sm text-red-700 truncate">{t.description || t.nature}</span>
                       <span className="text-sm font-medium text-red-700">{formatCurrency(t.amount)}</span>
                     </div>
                   ))}
@@ -47,7 +46,6 @@ const Expenses = () => {
             </CardContent>
           </Card>
 
-          {/* Categories */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Catégories de sorties</CardTitle>
