@@ -14,7 +14,8 @@ import {
   UsersRound,
   Briefcase,
   Menu,
-  X
+  FolderOpen,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,9 +29,11 @@ const menuItems = [
   { icon: ArrowUpCircle, label: 'Sorties', path: '/expenses', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
   { icon: FileText, label: 'Transactions', path: '/transactions', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: BarChart3, label: 'Rapports', path: '/reports', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
+  { icon: FolderOpen, label: 'Documents', path: '/documents', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: UsersRound, label: 'Associés', path: '/associates', roles: ['super_admin'] },
   { icon: Briefcase, label: 'Intervenants', path: '/stakeholders', roles: ['super_admin', 'admin', 'comptable', 'raf'] },
   { icon: Users, label: 'Utilisateurs', path: '/users', roles: ['super_admin'] },
+  { icon: Bell, label: 'Notifications', path: '/notifications', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
   { icon: Settings, label: 'Paramètres', path: '/settings', roles: ['super_admin', 'admin', 'comptable', 'raf', 'cabinet', 'auditeur'] },
 ];
 

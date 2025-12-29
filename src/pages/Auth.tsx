@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -138,7 +138,7 @@ export default function Auth() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="admin@agricapital.ci" type="email" {...field} disabled={isLoading} />
+                        <Input placeholder="votre@email.com" type="email" {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -172,10 +172,7 @@ export default function Auth() {
 
             <div className="mt-6 text-center text-xs text-muted-foreground">
               <p>
-                Retour à <Link className="underline" to="/">l’accueil</Link>
-              </p>
-              <p className="mt-1">
-                Première installation ? <Link className="underline" to="/init-admin">Initialiser le Super Admin</Link>
+                Retour à <Link className="underline hover:text-primary" to="/">l'accueil</Link>
               </p>
             </div>
           </CardContent>
