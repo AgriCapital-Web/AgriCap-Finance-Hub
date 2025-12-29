@@ -5,11 +5,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Building2, Mail, Phone, Globe, Bell, Shield, Palette, Database } from 'lucide-react';
+import { Building2, Mail, Phone, Globe, Bell, Shield, Database, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import logo from '@/assets/logo-agricapital.png';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import logo from '@/assets/logo-agricapital-transparent.png';
 
 const Settings = () => {
+  const [stats, setStats] = useState({ transactions: 0, documents: 0, reports: 0 });
+  const [dbConnected, setDbConnected] = useState(false);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const { count: txCount } = await supabase.from('transactions').select('*', { count: 'exact', head: true });
+        const { count: docCount } = await supabase.from('documents').select('*', { count: 'exact', head: true });
+        setStats({ transactions: txCount || 0, documents: docCount || 0, reports: 0 });
+        setDbConnected(true);
+      } catch {
+        setDbConnected(false);
+      }
+    };
+    checkConnection();
+  }, []);
+
   const handleSave = () => {
     toast({
       title: "Paramètres sauvegardés",
@@ -193,27 +212,38 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Transactions</p>
-                <p className="text-2xl font-bold">8</p>
+                <p className="text-2xl font-bold">{stats.transactions}</p>
                 <p className="text-xs text-muted-foreground mt-1">Documents enregistrés</p>
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Pièces justificatives</p>
-                <p className="text-2xl font-bold">5</p>
+                <p className="text-2xl font-bold">{stats.documents}</p>
                 <p className="text-xs text-muted-foreground mt-1">Fichiers uploadés</p>
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Rapports générés</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.reports}</p>
                 <p className="text-xs text-muted-foreground mt-1">Ce mois</p>
               </div>
             </div>
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-amber-800 font-medium">Base de données non connectée</p>
-              <p className="text-sm text-amber-700 mt-1">
-                Pour sauvegarder vos données de manière permanente et activer toutes les fonctionnalités, 
-                veuillez connecter Lovable Cloud.
-              </p>
-            </div>
+            {dbConnected ? (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-medium">Base de données connectée</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Lovable Cloud est actif. Toutes vos données sont sauvegardées en temps réel.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800 font-medium">Vérification de la connexion...</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  Connexion à la base de données en cours.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
