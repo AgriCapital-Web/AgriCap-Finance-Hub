@@ -6,25 +6,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield, CheckCircle } from 'lucide-react';
+import { Loader2, Shield, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import logo from '@/assets/logo-agricapital-transparent.png';
+import { z } from 'zod';
+
+// Validation schema for admin credentials
+const adminSchema = z.object({
+  email: z.string().email("Format d'email invalide"),
+  password: z.string()
+    .min(12, "Le mot de passe doit contenir au moins 12 caractères")
+    .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
+    .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
+    .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre")
+    .regex(/[^A-Za-z0-9]/, "Le mot de passe doit contenir au moins un caractère spécial"),
+  full_name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  phone: z.string().optional(),
+  title: z.string().optional()
+});
 
 const InitSuperAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [adminExists, setAdminExists] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Pre-filled data for super admin
-  const adminData = {
-    email: 'admin@agricapital.ci',
-    password: '@AgriCapitaladmin',
-    full_name: 'KOFFI Inocent',
-    phone: '0759566087',
-    title: 'Fondateur / PDG'
-  };
+  // Form state - user provides their own credentials
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    full_name: '',
+    phone: '',
+    title: 'PDG / Fondateur'
+  });
 
   useEffect(() => {
     checkIfAdminExists();
@@ -47,19 +65,59 @@ const InitSuperAdmin = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    try {
+      adminSchema.parse(formData);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        err.errors.forEach((error) => {
+          if (error.path[0]) {
+            newErrors[error.path[0] as string] = error.message;
+          }
+        });
+      }
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
   const handleInitialize = async () => {
+    if (!validateForm()) {
+      toast({
+        title: "Erreur de validation",
+        description: "Veuillez corriger les erreurs dans le formulaire.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // 1. Create the auth user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: adminData.email,
-        password: adminData.password,
+        email: formData.email,
+        password: formData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            full_name: adminData.full_name,
-            phone: adminData.phone,
-            title: adminData.title
+            full_name: formData.full_name,
+            phone: formData.phone,
+            title: formData.title
           }
         }
       });
@@ -86,7 +144,7 @@ const InitSuperAdmin = () => {
       setSuccess(true);
       toast({
         title: "Super Admin créé avec succès !",
-        description: `Le compte ${adminData.email} a été initialisé.`,
+        description: "Votre compte a été initialisé. Veuillez vous connecter.",
       });
 
       // Redirect after 3 seconds
@@ -160,12 +218,12 @@ const InitSuperAdmin = () => {
             </div>
             <CardTitle className="text-xl text-primary">Initialisation réussie !</CardTitle>
             <CardDescription>
-              Le compte Super Admin a été créé. Redirection vers la page de connexion...
+              Votre compte Super Admin a été créé. Redirection vers la page de connexion...
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
-              Email: <strong>{adminData.email}</strong>
+              Veuillez conserver vos identifiants en lieu sûr.
             </p>
             <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
           </CardContent>
@@ -188,38 +246,104 @@ const InitSuperAdmin = () => {
           </div>
           <CardTitle className="text-2xl">Initialisation du Super Admin</CardTitle>
           <CardDescription>
-            Configuration du premier administrateur pour AgriCapital Finance Hub
+            Créez votre compte administrateur principal pour AgriCapital Finance Hub
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Nom complet *</Label>
+              <Input
+                id="full_name"
+                type="text"
+                placeholder="Ex: KOFFI Inocent"
+                value={formData.full_name}
+                onChange={(e) => handleInputChange('full_name', e.target.value)}
+                className={errors.full_name ? 'border-destructive' : ''}
+              />
+              {errors.full_name && (
+                <p className="text-xs text-destructive">{errors.full_name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="votre@email.com"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className={errors.email ? 'border-destructive' : ''}
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive">{errors.email}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe *</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Minimum 12 caractères"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  className={errors.password ? 'border-destructive pr-10' : 'pr-10'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                12+ caractères, majuscule, minuscule, chiffre et caractère spécial
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
+              <Input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Confirmez votre mot de passe"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className={errors.confirmPassword ? 'border-destructive' : ''}
+              />
+              {errors.confirmPassword && (
+                <p className="text-xs text-destructive">{errors.confirmPassword}</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Email</Label>
-                <p className="font-medium">{adminData.email}</p>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Téléphone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Ex: 0759566087"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                />
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Mot de passe</Label>
-                <p className="font-medium">••••••••••••</p>
+              <div className="space-y-2">
+                <Label htmlFor="title">Fonction</Label>
+                <Input
+                  id="title"
+                  type="text"
+                  placeholder="Ex: PDG / Fondateur"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Nom complet</Label>
-                <p className="font-medium">{adminData.full_name}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Téléphone</Label>
-                <p className="font-medium">{adminData.phone}</p>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Titre</Label>
-              <p className="font-medium">{adminData.title}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Rôle</Label>
-              <p className="font-medium text-primary">Super Admin (PDG / Fondateur)</p>
             </div>
           </div>
 
@@ -242,7 +366,7 @@ const InitSuperAdmin = () => {
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            Cette action ne peut être effectuée qu'une seule fois.
+            Cette action ne peut être effectuée qu'une seule fois. Conservez vos identifiants en lieu sûr.
           </p>
         </CardContent>
       </Card>
