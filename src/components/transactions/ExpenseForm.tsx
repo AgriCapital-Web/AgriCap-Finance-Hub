@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Upload, Calendar, FileText, Loader2, Building2, User } from 'lucide-react';
+import { Upload, Calendar, FileText, Loader2, User, Wallet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,29 +12,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useDepartments } from '@/hooks/useDepartments';
+import { validateFile, sanitizeFileName, generateStructuredPath, MIN_AMOUNT, MAX_AMOUNT } from '@/lib/validation';
+import { useAssociates } from '@/hooks/useAssociates';
 
 const expenseSchema = z.object({
   date: z.string().min(1, 'La date est requise'),
-  amount: z.string().min(1, 'Le montant est requis'),
+  amount: z.string()
+    .min(1, 'Le montant est requis')
+    .refine((val) => {
+      const num = parseFloat(val.replace(/[\s,]/g, ''));
+      return !isNaN(num) && num >= MIN_AMOUNT && num <= MAX_AMOUNT;
+    }, { message: `Montant invalide (min: ${MIN_AMOUNT}, max: ${MAX_AMOUNT.toLocaleString('fr-FR')} FCFA)` }),
   category: z.string().min(1, 'La catégorie est requise'),
-  department_id: z.string().optional(),
+  beneficiary_type: z.string().optional(),
   stakeholder_id: z.string().optional(),
-  article: z.string().min(1, "L'article est requis"),
+  associate_id: z.string().optional(),
   description: z.string().optional(),
   payment_method: z.string().optional(),
+  payment_provider_id: z.string().optional(),
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 const expenseCategories = ['Carburation', 'Achats de Matériel', 'Salaires', 'Négoce', 'Fournitures', 'Services', 'Autre dépense'];
-const paymentMethods = [
-  { value: 'cash', label: 'Espèces' },
-  { value: 'bank', label: 'Banque' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'cheque', label: 'Chèque' },
-  { value: 'transfer', label: 'Virement' },
+const beneficiaryTypes = [
+  { value: 'associate', label: 'Associé' },
+  { value: 'employe_interne', label: 'Employé Interne' },
+  { value: 'prestataire_interne', label: 'Prestataire Interne' },
+  { value: 'prestataire_externe', label: 'Prestataire Externe' },
+  { value: 'autre', label: 'Autre' },
 ];
+
+interface PaymentProvider {
+  id: string;
+  name: string;
+  type: string;
+}
 
 interface ExpenseFormProps {
   onSuccess?: () => void;
@@ -42,18 +55,26 @@ interface ExpenseFormProps {
 
 export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stakeholders, setStakeholders] = useState<any[]>([]);
+  const [paymentProviders, setPaymentProviders] = useState<PaymentProvider[]>([]);
+  const [filteredProviders, setFilteredProviders] = useState<PaymentProvider[]>([]);
+  const [filteredStakeholders, setFilteredStakeholders] = useState<any[]>([]);
   const { user } = useAuth();
-  const { departments } = useDepartments();
+  const { associates } = useAssociates();
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm<ExpenseFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
     },
   });
 
+  const selectedPaymentMethod = watch('payment_method');
+  const selectedBeneficiaryType = watch('beneficiary_type');
+
+  // Fetch stakeholders
   useEffect(() => {
     const fetchStakeholders = async () => {
       const { data } = await supabase.from('stakeholders').select('*').eq('is_active', true).order('name');
@@ -61,6 +82,42 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
     };
     fetchStakeholders();
   }, []);
+
+  // Fetch payment providers
+  useEffect(() => {
+    const fetchProviders = async () => {
+      const { data } = await supabase
+        .from('payment_providers' as any)
+        .select('id, name, type')
+        .eq('is_active', true)
+        .order('name');
+      setPaymentProviders((data as PaymentProvider[]) || []);
+    };
+    fetchProviders();
+  }, []);
+
+  // Filter providers based on payment method
+  useEffect(() => {
+    if (selectedPaymentMethod === 'mobile_money') {
+      setFilteredProviders(paymentProviders.filter(p => p.type === 'mobile_money'));
+    } else if (selectedPaymentMethod === 'bank' || selectedPaymentMethod === 'transfer' || selectedPaymentMethod === 'cheque') {
+      setFilteredProviders(paymentProviders.filter(p => p.type === 'bank' || p.type === 'microfinance'));
+    } else {
+      setFilteredProviders([]);
+    }
+  }, [selectedPaymentMethod, paymentProviders]);
+
+  // Filter stakeholders based on beneficiary type
+  useEffect(() => {
+    if (selectedBeneficiaryType && selectedBeneficiaryType !== 'associate') {
+      setFilteredStakeholders(stakeholders.filter(s => s.operational_status === selectedBeneficiaryType));
+    } else {
+      setFilteredStakeholders([]);
+    }
+    // Reset stakeholder/associate selection when type changes
+    setValue('stakeholder_id', '');
+    setValue('associate_id', '');
+  }, [selectedBeneficiaryType, stakeholders, setValue]);
 
   const onSubmit = async (data: ExpenseFormData) => {
     if (!user) {
@@ -73,39 +130,57 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
       // Upload file if present
       let filePath: string | null = null;
       if (file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+        const structuredPath = generateStructuredPath(file.name, 'transactions');
         const { error: uploadError } = await supabase.storage
           .from('documents')
-          .upload(`transactions/${fileName}`, file);
+          .upload(structuredPath, file);
         
         if (uploadError) throw uploadError;
-        filePath = `transactions/${fileName}`;
+        filePath = structuredPath;
       }
 
+      const amount = parseFloat(data.amount.replace(/[\s,]/g, ''));
+
       // Create transaction
-      const { error } = await supabase.from('transactions').insert({
+      const { data: transaction, error } = await supabase.from('transactions').insert({
         date: data.date,
-        amount: parseFloat(data.amount.replace(/\s/g, '')),
+        amount: amount,
         transaction_type: 'expense',
         nature: data.category,
-        department_id: data.department_id || null,
         stakeholder_id: data.stakeholder_id || null,
-        description: data.article + (data.description ? ` - ${data.description}` : ''),
+        associate_id: data.associate_id || null,
+        description: data.description || null,
         payment_method: (data.payment_method as any) || null,
+        payment_provider_id: data.payment_provider_id || null,
         created_by: user.id,
         validation_status: 'draft',
-      });
+      }).select().single();
 
       if (error) throw error;
 
+      // Create document record if file was uploaded
+      if (filePath && transaction) {
+        await supabase.from('documents').insert({
+          file_name: sanitizeFileName(file!.name),
+          file_path: filePath,
+          file_size: file!.size,
+          file_type: file!.type,
+          document_type: 'justificatif',
+          transaction_id: transaction.id,
+          uploaded_by: user.id,
+          storage_year: new Date().getFullYear(),
+          storage_month: new Date().getMonth() + 1,
+        });
+      }
+
       toast({
         title: 'Sortie enregistrée',
-        description: `Montant: ${data.amount} FCFA`,
+        description: `Montant: ${amount.toLocaleString('fr-FR')} FCFA`,
       });
 
       reset();
       setFile(null);
+      setFileError(null);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error creating expense:', error);
@@ -120,10 +195,29 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      const validation = validateFile(selectedFile);
+      
+      if (!validation.valid) {
+        setFileError(validation.error || 'Fichier invalide');
+        setFile(null);
+        e.target.value = '';
+        return;
+      }
+      
+      setFile(selectedFile);
     }
   };
+
+  const paymentMethods = [
+    { value: 'cash', label: 'Espèces' },
+    { value: 'bank', label: 'Banque' },
+    { value: 'mobile_money', label: 'Mobile Money' },
+    { value: 'cheque', label: 'Chèque' },
+    { value: 'transfer', label: 'Virement' },
+  ];
 
   return (
     <Card className="animate-fadeIn">
@@ -182,55 +276,61 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
               {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
             </div>
 
-            {/* Article */}
+            {/* Beneficiary Type */}
             <div className="space-y-2">
-              <Label htmlFor="article">Article / Libellé</Label>
-              <Input
-                id="article"
-                placeholder="Ex: Achat de matériel"
-                {...register('article')}
-                className={errors.article ? 'border-destructive' : ''}
-              />
-              {errors.article && <p className="text-sm text-destructive">{errors.article.message}</p>}
-            </div>
-
-            {/* Department */}
-            <div className="space-y-2">
-              <Label htmlFor="department_id" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                Service / Département
-              </Label>
-              <Select onValueChange={(val) => setValue('department_id', val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Beneficiary/Stakeholder */}
-            <div className="space-y-2">
-              <Label htmlFor="stakeholder_id" className="flex items-center gap-2">
+              <Label htmlFor="beneficiary_type" className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                Bénéficiaire / Intervenant
+                Type d'utilisateur / Intervenant
               </Label>
-              <Select onValueChange={(val) => setValue('stakeholder_id', val)}>
+              <Select onValueChange={(val) => setValue('beneficiary_type', val)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un bénéficiaire" />
+                  <SelectValue placeholder="Sélectionner un type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {stakeholders.map((stakeholder) => (
-                    <SelectItem key={stakeholder.id} value={stakeholder.id}>
-                      {stakeholder.name}
-                    </SelectItem>
+                  {beneficiaryTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Associate (shown for associate type) */}
+            {selectedBeneficiaryType === 'associate' && (
+              <div className="space-y-2">
+                <Label htmlFor="associate_id">Associé</Label>
+                <Select onValueChange={(val) => setValue('associate_id', val)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un associé" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {associates.map((associate) => (
+                      <SelectItem key={associate.id} value={associate.id}>
+                        {associate.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Stakeholder (shown for other types) */}
+            {selectedBeneficiaryType && selectedBeneficiaryType !== 'associate' && filteredStakeholders.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="stakeholder_id">Intervenant</Label>
+                <Select onValueChange={(val) => setValue('stakeholder_id', val)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un intervenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredStakeholders.map((stakeholder) => (
+                      <SelectItem key={stakeholder.id} value={stakeholder.id}>
+                        {stakeholder.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Payment Method */}
             <div className="space-y-2">
@@ -246,6 +346,28 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Payment Provider (conditional) */}
+            {filteredProviders.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="payment_provider_id" className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                  {selectedPaymentMethod === 'mobile_money' ? 'Opérateur' : 'Banque / Institution'}
+                </Label>
+                <Select onValueChange={(val) => setValue('payment_provider_id', val)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={selectedPaymentMethod === 'mobile_money' ? "Sélectionner l'opérateur" : "Sélectionner la banque"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredProviders.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Description */}
@@ -262,26 +384,27 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
           {/* File Upload */}
           <div className="space-y-2">
             <Label>Pièce justificative (Reçu / Facture)</Label>
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+            <div className={`border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer ${fileError ? 'border-destructive' : 'border-border'}`}>
               <input
                 type="file"
                 id="expense-file-upload"
                 className="hidden"
-                accept="image/*,.pdf"
+                accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileChange}
               />
               <label htmlFor="expense-file-upload" className="cursor-pointer">
                 <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                 {file ? (
-                  <p className="text-sm font-medium text-foreground">{file.name}</p>
+                  <p className="text-sm font-medium text-foreground">{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</p>
                 ) : (
                   <>
                     <p className="text-sm font-medium text-foreground">Cliquez pour téléverser</p>
-                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, PDF jusqu'à 10MB</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG (max 20MB)</p>
                   </>
                 )}
               </label>
             </div>
+            {fileError && <p className="text-sm text-destructive">{fileError}</p>}
           </div>
 
           {/* Actions */}
@@ -294,7 +417,7 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Enregistrer
             </Button>
-            <Button type="button" variant="outline" onClick={() => reset()} disabled={isSubmitting}>
+            <Button type="button" variant="outline" onClick={() => { reset(); setFile(null); setFileError(null); }} disabled={isSubmitting}>
               Annuler
             </Button>
           </div>
