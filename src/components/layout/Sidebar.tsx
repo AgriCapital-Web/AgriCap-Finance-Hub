@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import logo from '@/assets/logo-agricapital-transparent.png';
+import logo from '@/assets/logo-agricapital-finance-hub.png';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -69,13 +69,14 @@ const SidebarContent = ({ collapsed, setCollapsed, onNavigate }: SidebarContentP
       {/* Logo Section */}
       <div className="flex items-center justify-center h-20 border-b border-sidebar-border px-4">
         {!collapsed ? (
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="AGRICAPITAL FINANCE – logo" className="h-12 w-auto object-contain" />
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="AgriCapital Finance Hub" className="h-12 w-auto object-contain" />
+            <div className="leading-tight">
+              <p className="text-xs font-bold text-sidebar-foreground">FINANCE HUB</p>
+            </div>
           </div>
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <span className="text-sidebar-primary-foreground font-bold text-lg">A</span>
-          </div>
+          <img src={logo} alt="AgriCapital Finance Hub" className="h-10 w-auto object-contain" />
         )}
       </div>
 

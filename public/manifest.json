@@ -1,21 +1,23 @@
 {
-  "name": "AgriCapital - Gestion Financière",
-  "short_name": "AgriCapital",
-  "description": "Plateforme de gestion financière et comptable",
+  "name": "AgriCapital Finance Hub",
+  "short_name": "Finance Hub",
+  "description": "Application Comptable Privée & Sécurisée d'AGRICAPITAL SARL",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#10b981",
+  "theme_color": "#E87A00",
   "icons": [
     {
       "src": "/favicon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/apple-touch-icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
