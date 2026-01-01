@@ -8,43 +8,71 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FileText, Download, Printer, Calendar, Building2 } from 'lucide-react';
-import { mockTransactions, calculateSummary, formatCurrency, departments } from '@/lib/mockData';
-import { toast } from '@/hooks/use-toast';
+import { useReportData } from '@/hooks/useChartData';
+import { useDepartments } from '@/hooks/useDepartments';
+import { formatCurrency } from '@/lib/mockData';
+import { exportFinancialReportPDF, exportBalanceSheetPDF } from '@/lib/pdfExport';
+import { exportFinancialReportExcel } from '@/lib/excelExport';
+import { useToast } from '@/hooks/use-toast';
 
 const Reports = () => {
+  const { toast } = useToast();
   const [periodType, setPeriodType] = useState('monthly');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [startDate, setStartDate] = useState('2025-11-01');
-  const [endDate, setEndDate] = useState('2025-11-30');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-  const summary = calculateSummary(mockTransactions);
-
-  // Data for pie chart
-  const pieData = [
-    { name: 'Carburation', value: 5000, color: 'hsl(0, 72%, 51%)' },
-    { name: 'Achats Matériel', value: 635000, color: 'hsl(25, 95%, 53%)' },
-    { name: 'Négoce', value: 5500, color: 'hsl(45, 93%, 47%)' },
-  ];
-
-  // Data for bar chart by department
-  const departmentData = departments.map(dept => ({
-    name: dept.name,
-    income: mockTransactions.filter(t => t.service === dept.name && t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
-    expenses: mockTransactions.filter(t => t.service === dept.name && t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
-  }));
+  const { departments } = useDepartments();
+  const { data, loading } = useReportData(startDate, endDate, selectedDepartment);
 
   const handleExportPDF = () => {
-    toast({
-      title: "Export PDF",
-      description: "Le rapport sera généré une fois la base de données connectée.",
+    if (data.transactions.length === 0) {
+      toast({ title: 'Aucune donnée', description: 'Ajoutez des transactions pour générer un rapport', variant: 'destructive' });
+      return;
+    }
+    exportFinancialReportPDF({
+      title: 'Rapport Financier',
+      period: `${startDate} au ${endDate}`,
+      totalIncome: data.totalIncome,
+      totalExpenses: data.totalExpenses,
+      balance: data.balance,
+      byCategory: data.byCategory,
     });
+    toast({ title: 'PDF généré', description: 'Le rapport a été téléchargé' });
   };
 
   const handleExportExcel = () => {
-    toast({
-      title: "Export Excel",
-      description: "Le fichier Excel sera généré une fois la base de données connectée.",
+    if (data.transactions.length === 0) {
+      toast({ title: 'Aucune donnée', description: 'Ajoutez des transactions pour générer un rapport', variant: 'destructive' });
+      return;
+    }
+    exportFinancialReportExcel({
+      title: 'Rapport Financier',
+      period: `${startDate} au ${endDate}`,
+      ...data,
     });
+    toast({ title: 'Excel généré', description: 'Le fichier a été téléchargé' });
+  };
+
+  const handleExportBalancePDF = () => {
+    exportBalanceSheetPDF({
+      period: `${startDate} au ${endDate}`,
+      assets: [
+        { label: 'Caisse', amount: data.balance },
+        { label: 'Banque', amount: 0 },
+        { label: 'Matériel', amount: data.byCategory.find(c => c.name === 'Achats de Matériel')?.value || 0 },
+      ],
+      liabilities: [
+        { label: 'Capital Social', amount: 5000000 },
+        { label: 'Apports Associés', amount: data.totalIncome },
+        { label: 'Résultat', amount: -data.totalExpenses },
+      ],
+    });
+    toast({ title: 'Bilan PDF généré', description: 'Le bilan a été téléchargé' });
   };
 
   return (
@@ -140,25 +168,29 @@ const Reports = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">État Financier</CardTitle>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" onClick={handleExportPDF}>
                   <Printer className="h-4 w-4" />
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="text-muted-foreground">Total des Entrées</span>
-                    <span className="font-bold text-emerald-600">{formatCurrency(summary.totalIncome)}</span>
+                {loading ? (
+                  <div className="text-center py-8 text-muted-foreground">Chargement...</div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-3 border-b">
+                      <span className="text-muted-foreground">Total des Entrées</span>
+                      <span className="font-bold text-emerald-600">{formatCurrency(data.totalIncome)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 border-b">
+                      <span className="text-muted-foreground">Total des Sorties</span>
+                      <span className="font-bold text-red-600">{formatCurrency(data.totalExpenses)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 bg-primary/5 rounded-lg px-4">
+                      <span className="font-semibold text-foreground">Solde Net</span>
+                      <span className="text-2xl font-bold text-primary">{formatCurrency(data.balance)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center py-3 border-b">
-                    <span className="text-muted-foreground">Total des Sorties</span>
-                    <span className="font-bold text-red-600">{formatCurrency(summary.totalExpenses)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 bg-primary/5 rounded-lg px-4">
-                    <span className="font-semibold text-foreground">Solde Net</span>
-                    <span className="text-2xl font-bold text-primary">{formatCurrency(summary.balance)}</span>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -168,25 +200,31 @@ const Reports = () => {
                 <CardTitle className="text-lg">Répartition des Dépenses</CardTitle>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {data.byCategory.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    Aucune donnée de dépenses
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={data.byCategory}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {data.byCategory.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -195,8 +233,12 @@ const Reports = () => {
         {/* Balance Tab */}
         <TabsContent value="balance">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Bilan Comptable</CardTitle>
+              <Button variant="outline" onClick={handleExportBalancePDF}>
+                <FileText className="h-4 w-4 mr-2" />
+                Exporter PDF
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -206,7 +248,7 @@ const Reports = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between py-2 border-b">
                       <span>Caisse</span>
-                      <span className="font-medium">{formatCurrency(summary.balance)}</span>
+                      <span className="font-medium">{formatCurrency(data.balance)}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span>Banque</span>
@@ -214,11 +256,11 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span>Matériel</span>
-                      <span className="font-medium">{formatCurrency(635000)}</span>
+                      <span className="font-medium">{formatCurrency(data.byCategory.find(c => c.name === 'Achats de Matériel')?.value || 0)}</span>
                     </div>
                     <div className="flex justify-between py-3 bg-primary/5 rounded-lg px-3 font-bold">
                       <span>TOTAL ACTIF</span>
-                      <span>{formatCurrency(summary.balance + 635000)}</span>
+                      <span>{formatCurrency(data.balance + (data.byCategory.find(c => c.name === 'Achats de Matériel')?.value || 0))}</span>
                     </div>
                   </div>
                 </div>
@@ -233,15 +275,15 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span>Apports Associés</span>
-                      <span className="font-medium">{formatCurrency(summary.totalIncome)}</span>
+                      <span className="font-medium">{formatCurrency(data.totalIncome)}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b">
                       <span>Résultat</span>
-                      <span className="font-medium text-red-600">({formatCurrency(summary.totalExpenses)})</span>
+                      <span className="font-medium text-red-600">({formatCurrency(data.totalExpenses)})</span>
                     </div>
                     <div className="flex justify-between py-3 bg-primary/5 rounded-lg px-3 font-bold">
                       <span>TOTAL PASSIF</span>
-                      <span>{formatCurrency(5000000 + summary.totalIncome - summary.totalExpenses)}</span>
+                      <span>{formatCurrency(5000000 + data.totalIncome - data.totalExpenses)}</span>
                     </div>
                   </div>
                 </div>
@@ -257,22 +299,23 @@ const Reports = () => {
               <CardTitle className="text-lg">Flux de Trésorerie</CardTitle>
             </CardHeader>
             <CardContent className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  { name: 'Semaine 1', income: 1000000, expenses: 303000 },
-                  { name: 'Semaine 2', income: 0, expenses: 342500 },
-                  { name: 'Semaine 3', income: 0, expenses: 0 },
-                  { name: 'Semaine 4', income: 0, expenses: 0 },
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v/1000)}k`} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="income" name="Entrées" fill="hsl(145, 63%, 35%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Sorties" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {data.transactions.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Aucune donnée de trésorerie pour cette période
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.byDepartment.filter(d => d.income > 0 || d.expenses > 0)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v/1000)}k`} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="income" name="Entrées" fill="hsl(145, 63%, 35%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" name="Sorties" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -284,17 +327,23 @@ const Reports = () => {
               <CardTitle className="text-lg">Analyse par Département</CardTitle>
             </CardHeader>
             <CardContent className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={departmentData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v/1000)}k`} />
-                  <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" width={100} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Bar dataKey="income" name="Entrées" fill="hsl(145, 63%, 35%)" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="expenses" name="Sorties" fill="hsl(0, 72%, 51%)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {data.byDepartment.filter(d => d.income > 0 || d.expenses > 0).length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Aucune donnée par département pour cette période
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.byDepartment.filter(d => d.income > 0 || d.expenses > 0)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v/1000)}k`} />
+                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" width={100} />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Legend />
+                    <Bar dataKey="income" name="Entrées" fill="hsl(145, 63%, 35%)" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="expenses" name="Sorties" fill="hsl(0, 72%, 51%)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
