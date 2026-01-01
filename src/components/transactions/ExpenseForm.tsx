@@ -91,7 +91,7 @@ export const ExpenseForm = ({ onSuccess }: ExpenseFormProps) => {
         .select('id, name, type')
         .eq('is_active', true)
         .order('name');
-      setPaymentProviders((data as PaymentProvider[]) || []);
+      setPaymentProviders((data as unknown as PaymentProvider[]) || []);
     };
     fetchProviders();
   }, []);

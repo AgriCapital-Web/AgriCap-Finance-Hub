@@ -73,7 +73,7 @@ export const IncomeForm = ({ onSuccess }: IncomeFormProps) => {
         .select('id, name, type')
         .eq('is_active', true)
         .order('name');
-      setPaymentProviders((data as PaymentProvider[]) || []);
+      setPaymentProviders((data as unknown as PaymentProvider[]) || []);
     };
     fetchProviders();
   }, []);
