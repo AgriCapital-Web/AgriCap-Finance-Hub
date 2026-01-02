@@ -524,6 +524,7 @@ export type Database = {
           id: string
           nature: string | null
           payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_provider_id: string | null
           project_id: string | null
           reference: string | null
           source: string | null
@@ -547,6 +548,7 @@ export type Database = {
           id?: string
           nature?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_provider_id?: string | null
           project_id?: string | null
           reference?: string | null
           source?: string | null
@@ -570,6 +572,7 @@ export type Database = {
           id?: string
           nature?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_provider_id?: string | null
           project_id?: string | null
           reference?: string | null
           source?: string | null
