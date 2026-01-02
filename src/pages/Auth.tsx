@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
-import logo from "@/assets/logo-agricapital-transparent.png";
+import logo from "@/assets/logo-agricapital-hub.png";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalide"),
