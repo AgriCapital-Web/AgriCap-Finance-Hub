@@ -275,6 +275,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          associate_id: string | null
           created_at: string | null
           document_type: string | null
           file_name: string
@@ -282,10 +283,18 @@ export type Database = {
           file_size: number | null
           file_type: string | null
           id: string
+          is_linked: boolean | null
+          linked_at: string | null
+          stakeholder_id: string | null
+          storage_month: number | null
+          storage_year: number | null
           transaction_id: string | null
           uploaded_by: string | null
+          user_profile_id: string | null
+          validated_by: string | null
         }
         Insert: {
+          associate_id?: string | null
           created_at?: string | null
           document_type?: string | null
           file_name: string
@@ -293,10 +302,18 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          is_linked?: boolean | null
+          linked_at?: string | null
+          stakeholder_id?: string | null
+          storage_month?: number | null
+          storage_year?: number | null
           transaction_id?: string | null
           uploaded_by?: string | null
+          user_profile_id?: string | null
+          validated_by?: string | null
         }
         Update: {
+          associate_id?: string | null
           created_at?: string | null
           document_type?: string | null
           file_name?: string
@@ -304,15 +321,43 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          is_linked?: boolean | null
+          linked_at?: string | null
+          stakeholder_id?: string | null
+          storage_month?: number | null
+          storage_year?: number | null
           transaction_id?: string | null
           uploaded_by?: string | null
+          user_profile_id?: string | null
+          validated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_associate_id_fkey"
+            columns: ["associate_id"]
+            isOneToOne: false
+            referencedRelation: "associates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_stakeholder_id_fkey"
+            columns: ["stakeholder_id"]
+            isOneToOne: false
+            referencedRelation: "stakeholders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -368,6 +413,33 @@ export type Database = {
           completed_by?: string | null
           id?: string
           step_completed?: string
+        }
+        Relationships: []
+      }
+      payment_providers: {
+        Row: {
+          country: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          type: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          type: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          type?: string
         }
         Relationships: []
       }
@@ -457,6 +529,27 @@ export type Database = {
           },
         ]
       }
+      regions_ci: {
+        Row: {
+          created_at: string | null
+          district: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          district?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          district?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       stakeholders: {
         Row: {
           address: string | null
@@ -470,6 +563,7 @@ export type Database = {
           name: string
           operational_status: Database["public"]["Enums"]["operational_status"]
           phone: string | null
+          region: string | null
           updated_at: string | null
         }
         Insert: {
@@ -484,6 +578,7 @@ export type Database = {
           name: string
           operational_status: Database["public"]["Enums"]["operational_status"]
           phone?: string | null
+          region?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -498,6 +593,7 @@ export type Database = {
           name?: string
           operational_status?: Database["public"]["Enums"]["operational_status"]
           phone?: string | null
+          region?: string | null
           updated_at?: string | null
         }
         Relationships: [

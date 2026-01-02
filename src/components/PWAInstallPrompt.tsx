@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Download, Smartphone } from 'lucide-react';
-import logo from '@/assets/logo-agricapital-transparent.png';
+import logo from '@/assets/logo-agricapital-hub.png';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
