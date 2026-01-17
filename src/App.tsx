@@ -20,6 +20,7 @@ import Notifications from "./pages/Notifications";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import InitSuperAdmin from "./pages/InitSuperAdmin";
+import OnboardingWizard from "./pages/OnboardingWizard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/init-admin" element={<InitSuperAdmin />} />
+            <Route path="/onboarding" element={<OnboardingWizard />} />
 
             {/* Protected routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

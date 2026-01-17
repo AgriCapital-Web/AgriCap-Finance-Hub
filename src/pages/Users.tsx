@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { UserPlus, Mail, Shield, Edit2, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UserPlus, Mail, Shield, Edit2, CheckCircle, XCircle, Loader2, Eye, EyeOff, Search, Filter } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,19 +19,70 @@ import { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
-const roleLabels: Record<AppRole, { label: string; color: string }> = {
-  super_admin: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  admin: { label: 'Administrateur', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  comptable: { label: 'Comptable', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  raf: { label: 'RAF', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  cabinet: { label: 'Cabinet', color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-  auditeur: { label: 'Auditeur', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+const roleLabels: Record<AppRole, { label: string; color: string; description: string }> = {
+  super_admin: { 
+    label: 'Super Admin', 
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    description: 'Accès complet à toutes les fonctionnalités'
+  },
+  admin: { 
+    label: 'Administrateur', 
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    description: 'Gestion des utilisateurs et paramètres'
+  },
+  comptable: { 
+    label: 'Comptable', 
+    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    description: 'Saisie et gestion des transactions'
+  },
+  raf: { 
+    label: 'RAF', 
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    description: 'Validation des transactions'
+  },
+  cabinet: { 
+    label: 'Cabinet Comptable', 
+    color: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+    description: 'Consultation des rapports'
+  },
+  auditeur: { 
+    label: 'Auditeur', 
+    color: 'bg-gray-100 text-gray-700 border-gray-200',
+    description: 'Audit et vérification'
+  },
+};
+
+const ACCESS_MODULES = [
+  { id: 'dashboard', label: 'Tableau de bord', description: 'Voir les statistiques' },
+  { id: 'income', label: 'Entrées', description: 'Gérer les revenus' },
+  { id: 'expenses', label: 'Sorties', description: 'Gérer les dépenses' },
+  { id: 'transactions', label: 'Transactions', description: 'Voir toutes les transactions' },
+  { id: 'reports', label: 'Rapports', description: 'Générer des rapports' },
+  { id: 'documents', label: 'Documents', description: 'Gérer les justificatifs' },
+  { id: 'associates', label: 'Associés', description: 'Gérer les associés' },
+  { id: 'stakeholders', label: 'Intervenants', description: 'Gérer les intervenants' },
+  { id: 'users', label: 'Utilisateurs', description: 'Gérer les comptes' },
+  { id: 'settings', label: 'Paramètres', description: 'Configuration' },
+];
+
+const DEFAULT_ACCESS_BY_ROLE: Record<string, string[]> = {
+  super_admin: ACCESS_MODULES.map(m => m.id),
+  admin: ACCESS_MODULES.map(m => m.id),
+  comptable: ['dashboard', 'income', 'expenses', 'transactions', 'documents', 'stakeholders'],
+  raf: ['dashboard', 'income', 'expenses', 'transactions', 'reports', 'documents', 'stakeholders'],
+  cabinet: ['dashboard', 'transactions', 'reports', 'documents'],
+  auditeur: ['dashboard', 'transactions', 'reports', 'documents'],
 };
 
 const Users = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [editingUser, setEditingUser] = useState<any>(null);
+  
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -37,12 +90,30 @@ const Users = () => {
     role: '' as AppRole,
     title: '',
     phone: '',
+    access: [] as string[],
   });
 
-  const { users, loading, roleCounts, createUser, toggleUserStatus } = useUsers();
+  const { users, loading, roleCounts, createUser, updateUserRole, toggleUserStatus } = useUsers();
   const { departments } = useDepartments();
   const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
+
+  const handleRoleChange = (role: AppRole) => {
+    setFormData({ 
+      ...formData, 
+      role,
+      access: DEFAULT_ACCESS_BY_ROLE[role] || []
+    });
+  };
+
+  const toggleAccess = (moduleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      access: prev.access.includes(moduleId)
+        ? prev.access.filter(a => a !== moduleId)
+        : [...prev.access, moduleId]
+    }));
+  };
 
   const handleCreateUser = async () => {
     if (!formData.full_name || !formData.email || !formData.password || !formData.role) {
@@ -74,13 +145,42 @@ const Users = () => {
         formData.title
       );
       setIsDialogOpen(false);
-      setFormData({ full_name: '', email: '', password: '', role: '' as AppRole, title: '', phone: '' });
-    } catch (err) {
-      // Error handled in hook
+      setFormData({ full_name: '', email: '', password: '', role: '' as AppRole, title: '', phone: '', access: [] });
+      toast({
+        title: 'Succès',
+        description: `L'utilisateur ${formData.full_name} a été créé avec succès`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erreur',
+        description: err.message || 'Impossible de créer l\'utilisateur',
+        variant: 'destructive',
+      });
     } finally {
       setCreating(false);
     }
   };
+
+  const handleEditUser = (user: any) => {
+    setEditingUser(user);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateRole = async (newRole: AppRole) => {
+    if (editingUser) {
+      await updateUserRole(editingUser.id, newRole);
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+    }
+  };
+
+  // Filter users
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = filterRole === 'all' || user.role === filterRole;
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <MainLayout 
@@ -89,9 +189,28 @@ const Users = () => {
     >
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-lg font-semibold">{users.length} utilisateurs</h2>
-          <p className="text-sm text-muted-foreground">Gérez les accès à la plateforme</p>
+        <div className="flex gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher..."
+              className="pl-9 w-64"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={filterRole} onValueChange={setFilterRole}>
+            <SelectTrigger className="w-40">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrer" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les rôles</SelectItem>
+              {Object.entries(roleLabels).map(([key, { label }]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         {isSuperAdmin && (
@@ -102,103 +221,148 @@ const Users = () => {
                 Nouvel utilisateur
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Créer un utilisateur</DialogTitle>
                 <DialogDescription>
                   Créez un nouveau compte utilisateur avec les permissions appropriées.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Nom complet *</Label>
-                  <Input
-                    id="full_name"
-                    placeholder="KOUAKOU Kouame Jacques"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="utilisateur@agricapital.ci"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Mot de passe *</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Minimum 6 caractères"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
+              
+              <Tabs defaultValue="info" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="info">Informations</TabsTrigger>
+                  <TabsTrigger value="access">Accès</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="info" className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="full_name">Nom complet *</Label>
+                      <Input
+                        id="full_name"
+                        placeholder="KOUAKOU Kouame Jacques"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="utilisateur@agricapital.ci"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Mot de passe *</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Minimum 6 caractères"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Téléphone</Label>
+                      <Input
+                        id="phone"
+                        placeholder="+225 XX XX XX XX"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Rôle *</Label>
+                      <Select
+                        value={formData.role}
+                        onValueChange={(val) => handleRoleChange(val as AppRole)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un rôle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(roleLabels).map(([key, { label, description }]) => (
+                            <SelectItem key={key} value={key}>
+                              <div>
+                                <span className="font-medium">{label}</span>
+                                <p className="text-xs text-muted-foreground">{description}</p>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fonction</Label>
+                      <Select
+                        value={formData.title}
+                        onValueChange={(val) => setFormData({ ...formData, title: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DG / PDG">DG / PDG</SelectItem>
+                          <SelectItem value="Comptable">Comptable</SelectItem>
+                          <SelectItem value="RAF">RAF</SelectItem>
+                          <SelectItem value="Secrétaire">Secrétaire</SelectItem>
+                          <SelectItem value="RH">RH</SelectItem>
+                          <SelectItem value="Assistant(e)">Assistant(e)</SelectItem>
+                          <SelectItem value="Cabinet comptable">Cabinet comptable</SelectItem>
+                          <SelectItem value="Auditeur">Auditeur</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Rôle *</Label>
-                    <Select
-                      value={formData.role}
-                      onValueChange={(val) => setFormData({ ...formData, role: val as AppRole })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(roleLabels).map(([key, { label }]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                </TabsContent>
+                
+                <TabsContent value="access" className="space-y-4 py-4">
+                  <div className="p-4 bg-muted/50 rounded-lg mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      Sélectionnez les modules auxquels cet utilisateur aura accès. 
+                      Les accès par défaut sont définis selon le rôle choisi.
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Fonction</Label>
-                    <Select
-                      value={formData.title}
-                      onValueChange={(val) => setFormData({ ...formData, title: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DG / PDG">DG / PDG</SelectItem>
-                        <SelectItem value="Comptable">Comptable</SelectItem>
-                        <SelectItem value="RAF">RAF</SelectItem>
-                        <SelectItem value="Secrétaire">Secrétaire</SelectItem>
-                        <SelectItem value="RH">RH</SelectItem>
-                        <SelectItem value="Assistant(e)">Assistant(e)</SelectItem>
-                        <SelectItem value="Cabinet comptable">Cabinet comptable</SelectItem>
-                        <SelectItem value="Auditeur">Auditeur</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    {ACCESS_MODULES.map((module) => (
+                      <div
+                        key={module.id}
+                        className={`flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                          formData.access.includes(module.id) 
+                            ? 'bg-primary/5 border-primary' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleAccess(module.id)}
+                      >
+                        <Checkbox
+                          checked={formData.access.includes(module.id)}
+                          onCheckedChange={() => toggleAccess(module.id)}
+                        />
+                        <div className="space-y-1">
+                          <Label className="font-medium cursor-pointer">{module.label}</Label>
+                          <p className="text-xs text-muted-foreground">{module.description}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Téléphone</Label>
-                  <Input
-                    id="phone"
-                    placeholder="+225 XX XX XX XX"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
+              
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Annuler</Button>
                 <Button onClick={handleCreateUser} disabled={creating}>
@@ -216,7 +380,11 @@ const Users = () => {
         {Object.entries(roleLabels).map(([role, { label, color }]) => {
           const count = roleCounts[role as keyof typeof roleCounts] || 0;
           return (
-            <Card key={role} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={role} 
+              className={`hover:shadow-md transition-all cursor-pointer ${filterRole === role ? 'ring-2 ring-primary' : ''}`}
+              onClick={() => setFilterRole(filterRole === role ? 'all' : role)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -235,8 +403,9 @@ const Users = () => {
 
       {/* Users Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Liste des utilisateurs</CardTitle>
+          <Badge variant="outline">{filteredUsers.length} utilisateur(s)</Badge>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -244,9 +413,9 @@ const Users = () => {
               <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
               Chargement...
             </div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Aucun utilisateur trouvé
+              {searchTerm || filterRole !== 'all' ? 'Aucun utilisateur trouvé avec ces critères' : 'Aucun utilisateur trouvé'}
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden">
@@ -262,7 +431,7 @@ const Users = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
+                  {filteredUsers.map((user) => {
                     const role = user.role ? roleLabels[user.role] : null;
                     return (
                       <TableRow key={user.id} className="hover:bg-muted/30">
@@ -306,7 +475,12 @@ const Users = () => {
                         {isSuperAdmin && (
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={() => handleEditUser(user)}
+                              >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
                               <Button 
@@ -333,6 +507,46 @@ const Users = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier l'utilisateur</DialogTitle>
+            <DialogDescription>
+              Modifiez le rôle de {editingUser?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Rôle actuel</Label>
+              <Badge variant="outline" className={editingUser?.role ? roleLabels[editingUser.role as AppRole]?.color : ''}>
+                {editingUser?.role ? roleLabels[editingUser.role as AppRole]?.label : 'Sans rôle'}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <Label>Nouveau rôle</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(roleLabels).map(([key, { label, color }]) => (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    className={`justify-start ${color} ${editingUser?.role === key ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => handleUpdateRole(key as AppRole)}
+                    disabled={editingUser?.role === key}
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
