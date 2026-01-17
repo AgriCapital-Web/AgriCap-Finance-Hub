@@ -10,13 +10,21 @@ export function useChartData() {
     const fetchChartData = async () => {
       try {
         const currentYear = new Date().getFullYear();
+        
+        // Fetch ALL transactions for the current year (not just approved ones)
         const { data, error } = await supabase
           .from('transactions')
-          .select('date, amount, transaction_type')
+          .select('date, amount, transaction_type, validation_status')
           .gte('date', `${currentYear}-01-01`)
-          .lte('date', `${currentYear}-12-31`);
+          .lte('date', `${currentYear}-12-31`)
+          .order('date', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching chart data:', error);
+          throw error;
+        }
+
+        console.log('Chart data fetched:', data?.length, 'transactions');
 
         const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
         
@@ -42,9 +50,12 @@ export function useChartData() {
           };
         });
 
+        console.log('Processed chart data:', chartData);
         setChartData(chartData);
       } catch (err) {
         console.error('Error fetching chart data:', err);
+        // Set empty data on error
+        setChartData([]);
       } finally {
         setLoading(false);
       }
