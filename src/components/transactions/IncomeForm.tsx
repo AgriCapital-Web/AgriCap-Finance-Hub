@@ -135,7 +135,7 @@ export const IncomeForm = ({ onSuccess }: IncomeFormProps) => {
 
       if (error) throw error;
 
-      // If it's an associate contribution, also create the contribution record
+      // If it's an associate apport, also create the apport record
       if (data.category === 'Apport Associés' && data.associate_id && transaction) {
         await supabase.from('associate_contributions').insert({
           associate_id: data.associate_id,

@@ -5,12 +5,12 @@ import { Database } from '@/integrations/supabase/types';
 
 type Associate = Database['public']['Tables']['associates']['Row'];
 type AssociateInsert = Database['public']['Tables']['associates']['Insert'];
-type AssociateContribution = Database['public']['Tables']['associate_contributions']['Row'];
-type ContributionInsert = Database['public']['Tables']['associate_contributions']['Insert'];
+type AssociateApport = Database['public']['Tables']['associate_contributions']['Row'];
+type ApportInsert = Database['public']['Tables']['associate_contributions']['Insert'];
 
 export function useAssociates() {
   const [associates, setAssociates] = useState<Associate[]>([]);
-  const [contributions, setContributions] = useState<AssociateContribution[]>([]);
+  const [apports, setApports] = useState<AssociateApport[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -24,13 +24,13 @@ export function useAssociates() {
     }
   }, []);
 
-  const fetchContributions = useCallback(async () => {
+  const fetchApports = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('associate_contributions').select('*').order('contribution_date', { ascending: false });
       if (error) throw error;
-      setContributions(data || []);
+      setApports(data || []);
     } catch (err) {
-      console.error('Error fetching contributions:', err);
+      console.error('Error fetching apports:', err);
     }
   }, []);
 
@@ -58,13 +58,13 @@ export function useAssociates() {
     }
   };
 
-  const createContribution = async (contribution: ContributionInsert) => {
+  const createApport = async (apport: ApportInsert) => {
     try {
-      const { error } = await supabase.from('associate_contributions').insert([contribution]);
+      const { error } = await supabase.from('associate_contributions').insert([apport]);
       if (error) throw error;
       toast({ title: 'Succès', description: 'Apport enregistré' });
       fetchAssociates();
-      fetchContributions();
+      fetchApports();
     } catch (err) {
       toast({ title: 'Erreur', description: 'Impossible d\'enregistrer l\'apport', variant: 'destructive' });
       throw err;
@@ -74,13 +74,30 @@ export function useAssociates() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchAssociates(), fetchContributions()]);
+      await Promise.all([fetchAssociates(), fetchApports()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchAssociates, fetchContributions]);
+  }, [fetchAssociates, fetchApports]);
 
-  const totalContributions = associates.reduce((sum, a) => sum + (Number(a.total_contribution) || 0), 0);
+  const totalApports = associates.reduce((sum, a) => sum + (Number(a.total_contribution) || 0), 0);
 
-  return { associates, contributions, loading, totalContributions, refetch: () => Promise.all([fetchAssociates(), fetchContributions()]), createAssociate, updateAssociate, createContribution };
+  // Backward compatibility aliases
+  const contributions = apports;
+  const createContribution = createApport;
+  const totalContributions = totalApports;
+
+  return { 
+    associates, 
+    apports,
+    contributions, // alias
+    loading, 
+    totalApports,
+    totalContributions, // alias
+    refetch: () => Promise.all([fetchAssociates(), fetchApports()]), 
+    createAssociate, 
+    updateAssociate, 
+    createApport,
+    createContribution // alias
+  };
 }

@@ -141,10 +141,10 @@ export function exportFinancialReportExcel(data: {
   XLSX.writeFile(wb, `Rapport_Financier_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
-export function exportAssociatesExcel(associates: any[], contributions: any[]) {
+export function exportAssociatesExcel(associates: any[], apports: any[]) {
   const wb = XLSX.utils.book_new();
 
-  // Associates sheet
+  // Feuille associés
   const associatesSheet = XLSX.utils.json_to_sheet(associates.map(a => ({
     'Nom Complet': a.full_name,
     'Prénom': a.first_name || '-',
@@ -158,15 +158,15 @@ export function exportAssociatesExcel(associates: any[], contributions: any[]) {
   })));
   XLSX.utils.book_append_sheet(wb, associatesSheet, 'Associés');
 
-  // Contributions sheet
-  if (contributions.length > 0) {
-    const contribSheet = XLSX.utils.json_to_sheet(contributions.map(c => ({
+  // Feuille apports
+  if (apports.length > 0) {
+    const apportsSheet = XLSX.utils.json_to_sheet(apports.map(c => ({
       'Date': formatDate(c.contribution_date),
       'Type': c.contribution_type || '-',
       'Montant': Number(c.amount),
       'Description': c.description || '-',
     })));
-    XLSX.utils.book_append_sheet(wb, contribSheet, 'Contributions');
+    XLSX.utils.book_append_sheet(wb, apportsSheet, 'Apports');
   }
 
   XLSX.writeFile(wb, `Associes_${new Date().toISOString().split('T')[0]}.xlsx`);
