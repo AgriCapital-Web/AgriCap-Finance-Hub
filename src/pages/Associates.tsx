@@ -8,35 +8,55 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDate } from '@/lib/mockData';
-import { Plus, Users, TrendingUp, Wallet, FileText, Download, Printer, User, Calendar, Phone, Mail } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import type { Associate, AssociateContribution } from '@/types';
+import { Plus, Users, TrendingUp, Wallet, FileText, Download, Printer, User, Calendar, Phone, Mail, Pencil } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { AssociateForm } from '@/components/associates/AssociateForm';
 
-const COLORS = ['#1B7A3D', '#F5A623', '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
+interface AssociateData {
+  id: string;
+  full_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  entry_date: string;
+  total_contribution: number | null;
+  participation_rate: number | null;
+  notes?: string | null;
+  is_active: boolean | null;
+  photo_url?: string | null;
+  contact_person_name?: string | null;
+  contact_person_phone?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ContributionData {
+  id: string;
+  associate_id: string;
+  amount: number;
+  contribution_date: string;
+  contribution_type?: string | null;
+  description?: string | null;
+}
+
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(217 91% 60%)', 'hsl(262 83% 58%)', 'hsl(330 81% 60%)', 'hsl(172 66% 50%)', 'hsl(24 95% 53%)', 'hsl(239 84% 67%)'];
 
 const Associates = () => {
-  const [associates, setAssociates] = useState<Associate[]>([]);
-  const [contributions, setContributions] = useState<AssociateContribution[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [associates, setAssociates] = useState<AssociateData[]>([]);
+  const [contributions, setContributions] = useState<ContributionData[]>([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isContributionDialogOpen, setIsContributionDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedAssociate, setSelectedAssociate] = useState<Associate | null>(null);
+  const [selectedAssociate, setSelectedAssociate] = useState<AssociateData | null>(null);
   const { toast } = useToast();
   const { user, isSuperAdmin } = useAuth();
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    entry_date: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
 
   const [contributionForm, setContributionForm] = useState({
     associate_id: '',
@@ -83,52 +103,6 @@ const Associates = () => {
       setContributions(data || []);
     } catch (error) {
       console.error('Error fetching contributions:', error);
-    }
-  };
-
-  const handleAddAssociate = async () => {
-    if (!formData.full_name) {
-      toast({
-        title: 'Erreur',
-        description: 'Le nom complet est requis',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('associates')
-        .insert({
-          ...formData,
-          created_by: user?.id,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Succès',
-        description: 'Associé ajouté avec succès',
-      });
-
-      setIsDialogOpen(false);
-      setFormData({
-        full_name: '',
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        entry_date: new Date().toISOString().split('T')[0],
-        notes: '',
-      });
-      fetchAssociates();
-    } catch (error) {
-      console.error('Error adding associate:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible d\'ajouter l\'associé',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -181,6 +155,31 @@ const Associates = () => {
     }
   };
 
+  const handleOpenNewAssociate = () => {
+    setSelectedAssociate(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditAssociate = (associate: AssociateData) => {
+    setSelectedAssociate({
+      ...associate,
+      first_name: associate.first_name || '',
+      last_name: associate.last_name || '',
+      email: associate.email || '',
+      phone: associate.phone || '',
+      address: associate.address || '',
+      notes: associate.notes || '',
+      photo_url: associate.photo_url || '',
+      contact_person_name: associate.contact_person_name || '',
+      contact_person_phone: associate.contact_person_phone || '',
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleFormSuccess = () => {
+    fetchAssociates();
+  };
+
   const totalContributions = associates.reduce((sum, a) => sum + (a.total_contribution || 0), 0);
 
   const pieChartData = associates.map((associate, index) => ({
@@ -193,6 +192,12 @@ const Associates = () => {
     name: associate.full_name.split(' ').slice(-1)[0],
     apport: associate.total_contribution || 0,
   }));
+
+  const getInitials = (associate: AssociateData) => {
+    const first = associate.first_name?.charAt(0) || associate.full_name?.charAt(0) || '';
+    const last = associate.last_name?.charAt(0) || '';
+    return (first + last).toUpperCase() || 'AS';
+  };
 
   return (
     <MainLayout title="Gestion des Associés" subtitle="Suivi des apports et participations des associés">
@@ -224,11 +229,11 @@ const Associates = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-[hsl(217_91%_60%)]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-blue-500" />
+              <div className="p-2 bg-[hsl(217_91%_60%)]/10 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-[hsl(217_91%_60%)]" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Contributions</p>
@@ -237,11 +242,11 @@ const Associates = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-purple-500">
+        <Card className="border-l-4 border-l-[hsl(262_83%_58%)]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <FileText className="h-5 w-5 text-purple-500" />
+              <div className="p-2 bg-[hsl(262_83%_58%)]/10 rounded-lg">
+                <FileText className="h-5 w-5 text-[hsl(262_83%_58%)]" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Associés actifs</p>
@@ -256,91 +261,10 @@ const Associates = () => {
       <div className="flex flex-wrap gap-3 mb-6">
         {isSuperAdmin && (
           <>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouvel Associé
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Ajouter un associé</DialogTitle>
-                  <DialogDescription>Enregistrez un nouvel associé dans le système</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="full_name">Nom complet *</Label>
-                    <Input
-                      id="full_name"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      placeholder="KOFFI Inocent"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="first_name">Prénom</Label>
-                      <Input
-                        id="first_name"
-                        value={formData.first_name}
-                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        placeholder="Inocent"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="last_name">Nom</Label>
-                      <Input
-                        id="last_name"
-                        value={formData.last_name}
-                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        placeholder="KOFFI"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="associe@email.com"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Téléphone</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+225 XX XX XX XX"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="entry_date">Date d'entrée</Label>
-                    <Input
-                      id="entry_date"
-                      type="date"
-                      value={formData.entry_date}
-                      onChange={(e) => setFormData({ ...formData, entry_date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="notes">Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Informations complémentaires..."
-                    />
-                  </div>
-                  <Button onClick={handleAddAssociate} className="w-full">
-                    Ajouter l'associé
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={handleOpenNewAssociate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvel Associé
+            </Button>
 
             <Dialog open={isContributionDialogOpen} onOpenChange={setIsContributionDialogOpen}>
               <DialogTrigger asChild>
@@ -501,6 +425,7 @@ const Associates = () => {
                   <TableHead className="text-right">Apport total</TableHead>
                   <TableHead className="text-right">Participation</TableHead>
                   <TableHead className="text-center">Statut</TableHead>
+                  {isSuperAdmin && <TableHead className="text-center">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -508,9 +433,12 @@ const Associates = () => {
                   <TableRow key={associate.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
-                        </div>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={associate.photo_url || undefined} alt={associate.full_name} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {getInitials(associate)}
+                          </AvatarFallback>
+                        </Avatar>
                         <div>
                           <p className="font-medium">{associate.full_name}</p>
                           <p className="text-xs text-muted-foreground md:hidden">{associate.phone || associate.email || '-'}</p>
@@ -552,11 +480,22 @@ const Associates = () => {
                         {associate.is_active ? 'Actif' : 'Inactif'}
                       </Badge>
                     </TableCell>
+                    {isSuperAdmin && (
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditAssociate(associate)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
                 {associates.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Aucun associé enregistré
                     </TableCell>
                   </TableRow>
@@ -566,6 +505,28 @@ const Associates = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Associate Form Dialog */}
+      <AssociateForm
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        associate={selectedAssociate ? {
+          id: selectedAssociate.id,
+          full_name: selectedAssociate.full_name,
+          first_name: selectedAssociate.first_name || '',
+          last_name: selectedAssociate.last_name || '',
+          email: selectedAssociate.email || '',
+          phone: selectedAssociate.phone || '',
+          address: selectedAssociate.address || '',
+          entry_date: selectedAssociate.entry_date,
+          notes: selectedAssociate.notes || '',
+          photo_url: selectedAssociate.photo_url || '',
+          contact_person_name: selectedAssociate.contact_person_name || '',
+          contact_person_phone: selectedAssociate.contact_person_phone || '',
+        } : null}
+        onSuccess={handleFormSuccess}
+        userId={user?.id}
+      />
     </MainLayout>
   );
 };
