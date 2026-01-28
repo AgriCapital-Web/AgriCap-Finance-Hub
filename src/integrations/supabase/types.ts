@@ -67,6 +67,9 @@ export type Database = {
       }
       associates: {
         Row: {
+          address: string | null
+          contact_person_name: string | null
+          contact_person_phone: string | null
           created_at: string | null
           created_by: string | null
           email: string | null
@@ -79,10 +82,14 @@ export type Database = {
           notes: string | null
           participation_rate: number | null
           phone: string | null
+          photo_url: string | null
           total_contribution: number | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
+          contact_person_name?: string | null
+          contact_person_phone?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -95,10 +102,14 @@ export type Database = {
           notes?: string | null
           participation_rate?: number | null
           phone?: string | null
+          photo_url?: string | null
           total_contribution?: number | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
+          contact_person_name?: string | null
+          contact_person_phone?: string | null
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -111,6 +122,7 @@ export type Database = {
           notes?: string | null
           participation_rate?: number | null
           phone?: string | null
+          photo_url?: string | null
           total_contribution?: number | null
           updated_at?: string | null
         }
