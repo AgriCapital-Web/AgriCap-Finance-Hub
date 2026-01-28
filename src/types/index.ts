@@ -64,27 +64,34 @@ export interface Associate {
   last_name?: string;
   email?: string;
   phone?: string;
+  address?: string;
   entry_date: string;
-  total_contribution: number;
+  total_apport: number; // renamed from total_contribution
   participation_rate: number;
   notes?: string;
   is_active: boolean;
+  photo_url?: string;
+  contact_person_name?: string;
+  contact_person_phone?: string;
   created_by?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface AssociateContribution {
+export interface AssociateApport {
   id: string;
   associate_id: string;
   transaction_id?: string;
   amount: number;
-  contribution_date: string;
-  contribution_type?: string;
+  apport_date: string; // renamed from contribution_date
+  apport_type?: string; // renamed from contribution_type
   description?: string;
   created_by?: string;
   created_at: string;
 }
+
+// Alias for backward compatibility
+export type AssociateContribution = AssociateApport;
 
 export interface FinancialSummary {
   totalIncome: number;

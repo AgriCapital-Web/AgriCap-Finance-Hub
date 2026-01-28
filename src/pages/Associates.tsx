@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDate } from '@/lib/mockData';
-import { Plus, Users, TrendingUp, Wallet, FileText, Download, Printer, User, Calendar, Phone, Mail, Pencil } from 'lucide-react';
+import { exportAssociatesExcel, exportAssociatesPDF, exportAssociateDetailPDF } from '@/lib/associateExports';
+import { Plus, Users, TrendingUp, Wallet, FileText, Download, Printer, Calendar, Phone, Mail, Pencil, History, FileSpreadsheet, Search } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { AssociateForm } from '@/components/associates/AssociateForm';
+import { AssociateContributionHistory } from '@/components/associates/AssociateContributionHistory';
 
 interface AssociateData {
   id: string;
@@ -37,7 +39,7 @@ interface AssociateData {
   updated_at: string | null;
 }
 
-interface ContributionData {
+interface ApportData {
   id: string;
   associate_id: string;
   amount: number;
@@ -50,15 +52,17 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(217 91% 60%)',
 
 const Associates = () => {
   const [associates, setAssociates] = useState<AssociateData[]>([]);
-  const [contributions, setContributions] = useState<ContributionData[]>([]);
+  const [apports, setApports] = useState<ApportData[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isContributionDialogOpen, setIsContributionDialogOpen] = useState(false);
+  const [isApportDialogOpen, setIsApportDialogOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedAssociate, setSelectedAssociate] = useState<AssociateData | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { user, isSuperAdmin } = useAuth();
 
-  const [contributionForm, setContributionForm] = useState({
+  const [apportForm, setApportForm] = useState({
     associate_id: '',
     amount: '',
     contribution_date: new Date().toISOString().split('T')[0],
@@ -66,12 +70,7 @@ const Associates = () => {
     description: '',
   });
 
-  useEffect(() => {
-    fetchAssociates();
-    fetchContributions();
-  }, []);
-
-  const fetchAssociates = async () => {
+  const fetchAssociates = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('associates')
@@ -90,9 +89,9 @@ const Associates = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchContributions = async () => {
+  const fetchApports = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('associate_contributions')
@@ -100,14 +99,19 @@ const Associates = () => {
         .order('contribution_date', { ascending: false });
 
       if (error) throw error;
-      setContributions(data || []);
+      setApports(data || []);
     } catch (error) {
-      console.error('Error fetching contributions:', error);
+      console.error('Error fetching apports:', error);
     }
-  };
+  }, []);
 
-  const handleAddContribution = async () => {
-    if (!contributionForm.associate_id || !contributionForm.amount) {
+  useEffect(() => {
+    fetchAssociates();
+    fetchApports();
+  }, [fetchAssociates, fetchApports]);
+
+  const handleAddApport = async () => {
+    if (!apportForm.associate_id || !apportForm.amount) {
       toast({
         title: 'Erreur',
         description: 'Veuillez remplir tous les champs requis',
@@ -120,11 +124,11 @@ const Associates = () => {
       const { error } = await supabase
         .from('associate_contributions')
         .insert({
-          associate_id: contributionForm.associate_id,
-          amount: parseFloat(contributionForm.amount),
-          contribution_date: contributionForm.contribution_date,
-          contribution_type: contributionForm.contribution_type,
-          description: contributionForm.description,
+          associate_id: apportForm.associate_id,
+          amount: parseFloat(apportForm.amount),
+          contribution_date: apportForm.contribution_date,
+          contribution_type: apportForm.contribution_type,
+          description: apportForm.description,
           created_by: user?.id,
         });
 
@@ -135,8 +139,8 @@ const Associates = () => {
         description: 'Apport enregistré avec succès',
       });
 
-      setIsContributionDialogOpen(false);
-      setContributionForm({
+      setIsApportDialogOpen(false);
+      setApportForm({
         associate_id: '',
         amount: '',
         contribution_date: new Date().toISOString().split('T')[0],
@@ -144,9 +148,9 @@ const Associates = () => {
         description: '',
       });
       fetchAssociates();
-      fetchContributions();
+      fetchApports();
     } catch (error) {
-      console.error('Error adding contribution:', error);
+      console.error('Error adding apport:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'enregistrer l\'apport',
@@ -176,11 +180,42 @@ const Associates = () => {
     setIsFormOpen(true);
   };
 
+  const handleViewHistory = (associate: AssociateData) => {
+    setSelectedAssociate(associate);
+    setIsHistoryOpen(true);
+  };
+
   const handleFormSuccess = () => {
     fetchAssociates();
   };
 
-  const totalContributions = associates.reduce((sum, a) => sum + (a.total_contribution || 0), 0);
+  const handleExportExcel = () => {
+    exportAssociatesExcel(associates, apports);
+    toast({
+      title: 'Export réussi',
+      description: 'Le fichier Excel a été téléchargé',
+    });
+  };
+
+  const handleExportPDF = () => {
+    exportAssociatesPDF(associates, apports);
+    toast({
+      title: 'Export réussi',
+      description: 'Le fichier PDF a été téléchargé',
+    });
+  };
+
+  const totalApports = associates.reduce((sum, a) => sum + (a.total_contribution || 0), 0);
+
+  const filteredAssociates = useMemo(() => {
+    if (!searchTerm) return associates;
+    const term = searchTerm.toLowerCase();
+    return associates.filter(a => 
+      a.full_name.toLowerCase().includes(term) ||
+      a.email?.toLowerCase().includes(term) ||
+      a.phone?.includes(term)
+    );
+  }, [associates, searchTerm]);
 
   const pieChartData = associates.map((associate, index) => ({
     name: associate.full_name,
@@ -224,7 +259,7 @@ const Associates = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total apports</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalContributions)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalApports)}</p>
               </div>
             </div>
           </CardContent>
@@ -236,8 +271,8 @@ const Associates = () => {
                 <TrendingUp className="h-5 w-5 text-[hsl(217_91%_60%)]" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Contributions</p>
-                <p className="text-2xl font-bold">{contributions.length}</p>
+                <p className="text-sm text-muted-foreground">Nombre d'apports</p>
+                <p className="text-2xl font-bold">{apports.length}</p>
               </div>
             </div>
           </CardContent>
@@ -266,7 +301,7 @@ const Associates = () => {
               Nouvel Associé
             </Button>
 
-            <Dialog open={isContributionDialogOpen} onOpenChange={setIsContributionDialogOpen}>
+            <Dialog open={isApportDialogOpen} onOpenChange={setIsApportDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">
                   <Wallet className="h-4 w-4 mr-2" />
@@ -284,8 +319,8 @@ const Associates = () => {
                     <select
                       id="associate"
                       className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                      value={contributionForm.associate_id}
-                      onChange={(e) => setContributionForm({ ...contributionForm, associate_id: e.target.value })}
+                      value={apportForm.associate_id}
+                      onChange={(e) => setApportForm({ ...apportForm, associate_id: e.target.value })}
                     >
                       <option value="">Sélectionner un associé</option>
                       {associates.map((associate) => (
@@ -300,8 +335,8 @@ const Associates = () => {
                     <Input
                       id="amount"
                       type="number"
-                      value={contributionForm.amount}
-                      onChange={(e) => setContributionForm({ ...contributionForm, amount: e.target.value })}
+                      value={apportForm.amount}
+                      onChange={(e) => setApportForm({ ...apportForm, amount: e.target.value })}
                       placeholder="1000000"
                     />
                   </div>
@@ -310,8 +345,8 @@ const Associates = () => {
                     <Input
                       id="contribution_date"
                       type="date"
-                      value={contributionForm.contribution_date}
-                      onChange={(e) => setContributionForm({ ...contributionForm, contribution_date: e.target.value })}
+                      value={apportForm.contribution_date}
+                      onChange={(e) => setApportForm({ ...apportForm, contribution_date: e.target.value })}
                     />
                   </div>
                   <div>
@@ -319,8 +354,8 @@ const Associates = () => {
                     <select
                       id="contribution_type"
                       className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                      value={contributionForm.contribution_type}
-                      onChange={(e) => setContributionForm({ ...contributionForm, contribution_type: e.target.value })}
+                      value={apportForm.contribution_type}
+                      onChange={(e) => setApportForm({ ...apportForm, contribution_type: e.target.value })}
                     >
                       <option value="Apport en capital">Apport en capital</option>
                       <option value="Apport en nature">Apport en nature</option>
@@ -332,12 +367,12 @@ const Associates = () => {
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
-                      value={contributionForm.description}
-                      onChange={(e) => setContributionForm({ ...contributionForm, description: e.target.value })}
+                      value={apportForm.description}
+                      onChange={(e) => setApportForm({ ...apportForm, description: e.target.value })}
                       placeholder="Description de l'apport..."
                     />
                   </div>
-                  <Button onClick={handleAddContribution} className="w-full">
+                  <Button onClick={handleAddApport} className="w-full">
                     Enregistrer l'apport
                   </Button>
                 </div>
@@ -345,11 +380,11 @@ const Associates = () => {
             </Dialog>
           </>
         )}
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
+        <Button variant="outline" onClick={handleExportExcel}>
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
           Export Excel
         </Button>
-        <Button variant="outline">
+        <Button variant="outline" onClick={handleExportPDF}>
           <Printer className="h-4 w-4 mr-2" />
           Imprimer PDF
         </Button>
@@ -390,7 +425,7 @@ const Associates = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Apports par associé</CardTitle>
-            <CardDescription>Comparaison des contributions</CardDescription>
+            <CardDescription>Comparaison des apports</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -411,8 +446,21 @@ const Associates = () => {
       {/* Associates Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Liste des associés</CardTitle>
-          <CardDescription>Détails et taux de participation</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <CardTitle className="text-lg">Liste des associés</CardTitle>
+              <CardDescription>Détails et taux de participation</CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un associé..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -425,16 +473,16 @@ const Associates = () => {
                   <TableHead className="text-right">Apport total</TableHead>
                   <TableHead className="text-right">Participation</TableHead>
                   <TableHead className="text-center">Statut</TableHead>
-                  {isSuperAdmin && <TableHead className="text-center">Actions</TableHead>}
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {associates.map((associate) => (
+                {filteredAssociates.map((associate) => (
                   <TableRow key={associate.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={associate.photo_url || undefined} alt={associate.full_name} />
+                          <AvatarImage src={associate.photo_url || undefined} alt={associate.full_name} loading="lazy" />
                           <AvatarFallback className="bg-primary/10 text-primary">
                             {getInitials(associate)}
                           </AvatarFallback>
@@ -480,23 +528,34 @@ const Associates = () => {
                         {associate.is_active ? 'Actif' : 'Inactif'}
                       </Badge>
                     </TableCell>
-                    {isSuperAdmin && (
-                      <TableCell className="text-center">
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEditAssociate(associate)}
+                          onClick={() => handleViewHistory(associate)}
+                          title="Voir l'historique des apports"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <History className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    )}
+                        {isSuperAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditAssociate(associate)}
+                            title="Modifier l'associé"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
-                {associates.length === 0 && (
+                {filteredAssociates.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Aucun associé enregistré
+                      {searchTerm ? 'Aucun associé trouvé' : 'Aucun associé enregistré'}
                     </TableCell>
                   </TableRow>
                 )}
@@ -527,6 +586,21 @@ const Associates = () => {
         onSuccess={handleFormSuccess}
         userId={user?.id}
       />
+
+      {/* Contribution History Dialog */}
+      {selectedAssociate && (
+        <AssociateContributionHistory
+          open={isHistoryOpen}
+          onOpenChange={setIsHistoryOpen}
+          associate={{
+            id: selectedAssociate.id,
+            full_name: selectedAssociate.full_name,
+            total_contribution: selectedAssociate.total_contribution,
+            participation_rate: selectedAssociate.participation_rate,
+          }}
+          contributions={apports}
+        />
+      )}
     </MainLayout>
   );
 };
