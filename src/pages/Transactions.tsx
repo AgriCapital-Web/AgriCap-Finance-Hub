@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useTransactions, useTransactionSummary } from '@/hooks/useTransactions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+import { usePaginatedTransactions } from '@/hooks/usePaginatedTransactions';
+import { useTransactionSummary } from '@/hooks/useTransactions';
 import { useDepartments } from '@/hooks/useDepartments';
 import { formatCurrency, formatDate } from '@/lib/mockData';
-import { exportTransactionsPDF } from '@/lib/pdfExport';
+import { exportTransactionsPDFPro } from '@/lib/pdfExportPro';
 import { exportTransactionsExcel } from '@/lib/excelExport';
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle2, Clock, Search, Download, FileText, Filter } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, CheckCircle2, Clock, Search, Download, FileText, RefreshCw } from 'lucide-react';
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   draft: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700 border-gray-200' },
@@ -28,33 +31,40 @@ const Transactions = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   
-  const { transactions, loading } = useTransactions();
+  // Construire les filtres pour le hook paginé
+  const filters = useMemo(() => ({
+    type: typeFilter !== 'all' ? typeFilter as 'income' | 'expense' : undefined,
+    status: statusFilter !== 'all' ? statusFilter as any : undefined,
+    departmentId: departmentFilter !== 'all' ? departmentFilter : undefined,
+    searchTerm: searchTerm || undefined,
+  }), [typeFilter, statusFilter, departmentFilter, searchTerm]);
+  
+  const { 
+    transactions, 
+    loading, 
+    pagination, 
+    goToPage, 
+    setPageSize, 
+    hasNextPage, 
+    hasPreviousPage,
+    refetch 
+  } = usePaginatedTransactions(filters);
+  
   const { summary } = useTransactionSummary();
   const { departments } = useDepartments();
 
-  const filteredTransactions = transactions.filter(tx => {
-    const matchesSearch = 
-      tx.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.reference?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'all' || tx.transaction_type === typeFilter;
-    const matchesStatus = statusFilter === 'all' || tx.validation_status === statusFilter;
-    const matchesDept = departmentFilter === 'all' || tx.department_id === departmentFilter;
-    
-    return matchesSearch && matchesType && matchesStatus && matchesDept;
-  });
-
   const handleExportPDF = () => {
-    exportTransactionsPDF(filteredTransactions, 'Journal des Transactions', 'Toutes périodes');
+    exportTransactionsPDFPro(transactions, 'Journal des Transactions', 'Toutes périodes');
   };
 
   const handleExportExcel = () => {
-    exportTransactionsExcel(filteredTransactions, 'Transactions');
+    exportTransactionsExcel(transactions, 'Transactions');
   };
 
   return (
     <MainLayout 
       title="Transactions" 
-      subtitle="Historique de toutes les opérations"
+      subtitle={`Historique de toutes les opérations • ${pagination.totalCount.toLocaleString('fr-FR')} résultats`}
     >
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -104,7 +114,7 @@ const Transactions = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher..."
+                  placeholder="Rechercher par description ou référence..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -143,6 +153,9 @@ const Transactions = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="icon" onClick={refetch} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
             <Button variant="outline" onClick={handleExportPDF}>
               <FileText className="h-4 w-4 mr-2" />
               PDF
@@ -157,31 +170,43 @@ const Transactions = () => {
 
       {/* Transactions Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Liste des Transactions ({filteredTransactions.length})</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Liste des Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">Chargement...</div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Aucune transaction trouvée
-            </div>
-          ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Référence</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead>Statut</TableHead>
+          <div className="rounded-lg border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Référence</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Montant</TableHead>
+                  <TableHead>Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  // Skeleton loading
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : transactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Aucune transaction trouvée
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.map((tx) => {
+                ) : (
+                  transactions.map((tx) => {
                     const status = statusLabels[tx.validation_status || 'draft'];
                     return (
                       <TableRow key={tx.id} className="hover:bg-muted/30">
@@ -193,12 +218,14 @@ const Transactions = () => {
                             ) : (
                               <ArrowUpCircle className="h-4 w-4 text-red-600" />
                             )}
-                            <span>{tx.transaction_type === 'income' ? 'Entrée' : 'Sortie'}</span>
+                            <span className="hidden sm:inline">
+                              {tx.transaction_type === 'income' ? 'Entrée' : 'Sortie'}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="font-mono text-sm">{tx.reference || '-'}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{tx.description || '-'}</TableCell>
-                        <TableCell className={`font-semibold ${
+                        <TableCell className={`text-right font-semibold ${
                           tx.transaction_type === 'income' ? 'text-emerald-600' : 'text-red-600'
                         }`}>
                           {tx.transaction_type === 'income' ? '+' : '-'}{formatCurrency(Number(tx.amount))}
@@ -210,11 +237,24 @@ const Transactions = () => {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Pagination */}
+          <DataTablePagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalCount={pagination.totalCount}
+            totalPages={pagination.totalPages}
+            onPageChange={goToPage}
+            onPageSizeChange={setPageSize}
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            loading={loading}
+          />
         </CardContent>
       </Card>
     </MainLayout>

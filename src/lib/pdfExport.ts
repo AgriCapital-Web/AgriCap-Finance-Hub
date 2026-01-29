@@ -1,54 +1,73 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate } from './mockData';
+import { formatCurrencyCIV, formatDateShort, formatDateFR } from './formatCurrency';
 
-const PDF_HEADER = {
-  company: 'AGRICAPITAL SARL',
-  tagline: 'Accompagnement agricole et services intégrés',
-};
-
-const PDF_FOOTER = {
-  line1: 'AGRICAPITAL SARL – Capital social : 5 000 000 F CFA',
-  line2: 'Gonaté, Daloa – Côte d\'Ivoire',
-  line3: 'RCCM : CI-DAL-01-2025-B12-13435 | Banque : Baobab CI',
-  line4: 'Tél : +225 07 59 56 60 87 | contact@agricapital.ci | www.agricapital.ci',
+const PDF_CONFIG = {
+  company: {
+    name: 'AGRICAPITAL SARL',
+    tagline: 'Accompagnement agricole et services intégrés',
+    capital: '5 000 000 F CFA',
+    address: 'Gonaté, Daloa – Côte d\'Ivoire',
+    rccm: 'CI-DAL-01-2025-B12-13435',
+    bank: 'Baobab CI',
+    phone: '+225 07 59 56 60 87',
+    email: 'contact@agricapital.ci',
+    website: 'www.agricapital.ci',
+  },
+  colors: {
+    primary: [27, 122, 61] as [number, number, number],
+  },
 };
 
 function addHeader(doc: jsPDF) {
+  const pageWidth = doc.internal.pageSize.width;
+  
+  // Bande verte en haut
+  doc.setFillColor(...PDF_CONFIG.colors.primary);
+  doc.rect(0, 0, pageWidth, 8, 'F');
+  
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(27, 122, 61); // Primary green
-  doc.text(PDF_HEADER.company, doc.internal.pageSize.width / 2, 20, { align: 'center' });
+  doc.setTextColor(...PDF_CONFIG.colors.primary);
+  doc.text(PDF_CONFIG.company.name, pageWidth / 2, 20, { align: 'center' });
   
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 100, 100);
-  doc.text(PDF_HEADER.tagline, doc.internal.pageSize.width / 2, 28, { align: 'center' });
+  doc.text(PDF_CONFIG.company.tagline, pageWidth / 2, 27, { align: 'center' });
   
-  // Line separator
-  doc.setDrawColor(27, 122, 61);
-  doc.setLineWidth(0.5);
-  doc.line(20, 32, doc.internal.pageSize.width - 20, 32);
+  // Ligne de séparation
+  doc.setDrawColor(...PDF_CONFIG.colors.primary);
+  doc.setLineWidth(0.8);
+  doc.line(20, 32, pageWidth - 20, 32);
 }
 
 function addFooter(doc: jsPDF, pageNumber: number, totalPages: number) {
   const pageHeight = doc.internal.pageSize.height;
   const pageWidth = doc.internal.pageSize.width;
   
-  // Line separator
+  // Ligne de séparation
   doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(20, pageHeight - 35, pageWidth - 20, pageHeight - 35);
+  doc.setLineWidth(0.5);
+  doc.line(20, pageHeight - 38, pageWidth - 20, pageHeight - 38);
   
   doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
-  doc.text(PDF_FOOTER.line1, pageWidth / 2, pageHeight - 28, { align: 'center' });
-  doc.text(PDF_FOOTER.line2, pageWidth / 2, pageHeight - 23, { align: 'center' });
-  doc.text(PDF_FOOTER.line3, pageWidth / 2, pageHeight - 18, { align: 'center' });
-  doc.text(PDF_FOOTER.line4, pageWidth / 2, pageHeight - 13, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
   
-  // Page number
-  doc.text(`Page ${pageNumber} / ${totalPages}`, pageWidth - 25, pageHeight - 8, { align: 'right' });
+  doc.text(`${PDF_CONFIG.company.name} – Capital social : ${PDF_CONFIG.company.capital}`, pageWidth / 2, pageHeight - 32, { align: 'center' });
+  doc.text(PDF_CONFIG.company.address, pageWidth / 2, pageHeight - 27, { align: 'center' });
+  doc.text(`RCCM : ${PDF_CONFIG.company.rccm} | Banque : ${PDF_CONFIG.company.bank}`, pageWidth / 2, pageHeight - 22, { align: 'center' });
+  doc.text(`Tél : ${PDF_CONFIG.company.phone} | ${PDF_CONFIG.company.email} | ${PDF_CONFIG.company.website}`, pageWidth / 2, pageHeight - 17, { align: 'center' });
+  
+  // Page
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Page ${pageNumber} / ${totalPages}`, pageWidth - 25, pageHeight - 10, { align: 'right' });
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.text(`Généré le ${formatDateFR(new Date())}`, 20, pageHeight - 10);
 }
 
 export function exportTransactionsPDF(transactions: any[], title: string, period: string) {
@@ -56,50 +75,49 @@ export function exportTransactionsPDF(transactions: any[], title: string, period
   
   addHeader(doc);
   
-  // Title
+  // Titre
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text(title, 20, 45);
+  doc.text(title.toUpperCase(), doc.internal.pageSize.width / 2, 45, { align: 'center' });
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Période : ${period}`, 20, 52);
-  doc.text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, 20, 58);
+  doc.text(`Période : ${period}`, doc.internal.pageSize.width / 2, 52, { align: 'center' });
   
-  // Summary
+  // Résumé
   const totalIncome = transactions.filter(t => t.transaction_type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
   const totalExpenses = transactions.filter(t => t.transaction_type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
   
-  doc.setFillColor(245, 245, 245);
-  doc.rect(20, 65, doc.internal.pageSize.width - 40, 20, 'F');
+  doc.setFillColor(245, 250, 245);
+  doc.roundedRect(20, 58, doc.internal.pageSize.width - 40, 20, 2, 2, 'F');
   
   doc.setFontSize(10);
-  doc.text(`Total Entrées: ${formatCurrency(totalIncome)}`, 25, 77);
-  doc.text(`Total Sorties: ${formatCurrency(totalExpenses)}`, 100, 77);
+  doc.text(`Total Entrées: ${formatCurrencyCIV(totalIncome)}`, 30, 70);
+  doc.text(`Total Sorties: ${formatCurrencyCIV(totalExpenses)}`, 90, 70);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Solde: ${formatCurrency(totalIncome - totalExpenses)}`, 170, 77);
+  doc.text(`Solde: ${formatCurrencyCIV(totalIncome - totalExpenses)}`, 155, 70);
   
-  // Table
+  // Tableau
   autoTable(doc, {
-    startY: 90,
+    startY: 85,
     head: [['Date', 'Type', 'Description', 'Montant', 'Statut']],
     body: transactions.map(t => [
-      formatDate(t.date),
+      formatDateShort(t.date),
       t.transaction_type === 'income' ? 'Entrée' : 'Sortie',
       t.description || '-',
-      formatCurrency(t.amount),
+      formatCurrencyCIV(Number(t.amount)),
       t.validation_status || 'draft',
     ]),
     headStyles: {
-      fillColor: [27, 122, 61],
+      fillColor: PDF_CONFIG.colors.primary,
       textColor: 255,
       fontStyle: 'bold',
     },
     alternateRowStyles: {
       fillColor: [245, 250, 245],
     },
-    margin: { bottom: 40 },
+    margin: { bottom: 45 },
     didDrawPage: (data) => {
       addFooter(doc, data.pageNumber, doc.getNumberOfPages());
     },
@@ -140,9 +158,9 @@ export function exportFinancialReportPDF(data: {
   
   doc.setFontSize(10);
   const colWidth = (doc.internal.pageSize.width - 40) / 3;
-  doc.text(`Entrées: ${formatCurrency(data.totalIncome)}`, 20 + colWidth / 2, 82, { align: 'center' });
-  doc.text(`Sorties: ${formatCurrency(data.totalExpenses)}`, 20 + colWidth * 1.5, 82, { align: 'center' });
-  doc.text(`Solde: ${formatCurrency(data.balance)}`, 20 + colWidth * 2.5, 82, { align: 'center' });
+  doc.text(`Entrées: ${formatCurrencyCIV(data.totalIncome)}`, 20 + colWidth / 2, 82, { align: 'center' });
+  doc.text(`Sorties: ${formatCurrencyCIV(data.totalExpenses)}`, 20 + colWidth * 1.5, 82, { align: 'center' });
+  doc.text(`Solde: ${formatCurrencyCIV(data.balance)}`, 20 + colWidth * 2.5, 82, { align: 'center' });
   
   // Category breakdown
   doc.setTextColor(0, 0, 0);
@@ -155,7 +173,7 @@ export function exportFinancialReportPDF(data: {
     head: [['Catégorie', 'Montant', '% du Total']],
     body: data.byCategory.map(cat => [
       cat.name,
-      formatCurrency(cat.value),
+      formatCurrencyCIV(cat.value),
       `${((cat.value / data.totalExpenses) * 100).toFixed(1)}%`,
     ]),
     headStyles: {
@@ -203,14 +221,14 @@ export function exportBalanceSheetPDF(data: {
   
   data.assets.forEach(item => {
     doc.text(item.label, 25, yPos);
-    doc.text(formatCurrency(item.amount), midX - 10, yPos, { align: 'right' });
+    doc.text(formatCurrencyCIV(item.amount), midX - 10, yPos, { align: 'right' });
     yPos += 8;
   });
   
   const totalAssets = data.assets.reduce((sum, a) => sum + a.amount, 0);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL ACTIF', 25, yPos + 5);
-  doc.text(formatCurrency(totalAssets), midX - 10, yPos + 5, { align: 'right' });
+  doc.text(formatCurrencyCIV(totalAssets), midX - 10, yPos + 5, { align: 'right' });
   
   // Liabilities
   yPos = 70;
@@ -224,14 +242,14 @@ export function exportBalanceSheetPDF(data: {
   
   data.liabilities.forEach(item => {
     doc.text(item.label, midX + 15, yPos);
-    doc.text(formatCurrency(item.amount), doc.internal.pageSize.width - 25, yPos, { align: 'right' });
+    doc.text(formatCurrencyCIV(item.amount), doc.internal.pageSize.width - 25, yPos, { align: 'right' });
     yPos += 8;
   });
   
   const totalLiabilities = data.liabilities.reduce((sum, l) => sum + l.amount, 0);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL PASSIF', midX + 15, yPos + 5);
-  doc.text(formatCurrency(totalLiabilities), doc.internal.pageSize.width - 25, yPos + 5, { align: 'right' });
+  doc.text(formatCurrencyCIV(totalLiabilities), doc.internal.pageSize.width - 25, yPos + 5, { align: 'right' });
   
   addFooter(doc, 1, 1);
   
