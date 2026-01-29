@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate } from './mockData';
+import { formatCurrencyCIV, formatDateShort, formatDateFR } from './formatCurrency';
 
 // =====================================================
 // Types
@@ -115,7 +115,7 @@ export function exportAssociatesExcel(associates: Associate[], contributions: Co
     'Email': a.email || '-',
     'Téléphone': a.phone || '-',
     'Adresse': a.address || '-',
-    'Date d\'entrée': formatDate(a.entry_date),
+    'Date d\'entrée': formatDateShort(a.entry_date),
     'Total Apports (FCFA)': a.total_contribution || 0,
     'Taux de participation (%)': a.participation_rate || 0,
     'Statut': a.is_active ? 'Actif' : 'Inactif',
@@ -145,7 +145,7 @@ export function exportAssociatesExcel(associates: Associate[], contributions: Co
     const contributionsData = contributions.map(c => {
       const associate = associates.find(a => a.id === c.associate_id);
       return {
-        'Date': formatDate(c.contribution_date),
+        'Date': formatDateShort(c.contribution_date),
         'Associé': associate?.full_name || 'Inconnu',
         'Type d\'apport': c.contribution_type || 'Non spécifié',
         'Montant (FCFA)': c.amount,
@@ -179,8 +179,8 @@ export function exportAssociatesExcel(associates: Associate[], contributions: Co
       'Nombre d\'apports': assocContribs.length,
       'Total apports (FCFA)': a.total_contribution || 0,
       'Taux (%)': a.participation_rate || 0,
-      'Premier apport': firstContrib ? formatDate(firstContrib.contribution_date) : '-',
-      'Dernier apport': lastContrib ? formatDate(lastContrib.contribution_date) : '-',
+      'Premier apport': firstContrib ? formatDateShort(firstContrib.contribution_date) : '-',
+      'Dernier apport': lastContrib ? formatDateShort(lastContrib.contribution_date) : '-',
       'Montant moyen': assocContribs.length > 0 ? Math.round((a.total_contribution || 0) / assocContribs.length) : 0,
     };
   });
@@ -228,7 +228,7 @@ export function exportAssociatesPDF(associates: Associate[], contributions: Cont
   const colWidth = (doc.internal.pageSize.width - 40) / 4;
   doc.text(`Associés: ${associates.length}`, 20 + colWidth / 2, 70, { align: 'center' });
   doc.text(`Actifs: ${associates.filter(a => a.is_active).length}`, 20 + colWidth * 1.5, 70, { align: 'center' });
-  doc.text(`Total apports: ${formatCurrency(totalApports)}`, 20 + colWidth * 2.5, 70, { align: 'center' });
+  doc.text(`Total apports: ${formatCurrencyCIV(totalApports)}`, 20 + colWidth * 2.5, 70, { align: 'center' });
   doc.text(`Nb apports: ${contributions.length}`, 20 + colWidth * 3.5, 70, { align: 'center' });
   
   // Tableau des associés
@@ -243,8 +243,8 @@ export function exportAssociatesPDF(associates: Associate[], contributions: Cont
     body: associates.map(a => [
       a.full_name,
       a.phone || a.email || '-',
-      formatDate(a.entry_date),
-      formatCurrency(a.total_contribution || 0),
+      formatDateShort(a.entry_date),
+      formatCurrencyCIV(a.total_contribution || 0),
       `${(a.participation_rate || 0).toFixed(2)}%`,
       a.is_active ? 'Actif' : 'Inactif',
     ]),
@@ -290,10 +290,10 @@ export function exportAssociatesPDF(associates: Associate[], contributions: Cont
       body: recentContributions.map(c => {
         const associate = associates.find(a => a.id === c.associate_id);
         return [
-          formatDate(c.contribution_date),
+          formatDateShort(c.contribution_date),
           associate?.full_name || 'Inconnu',
           c.contribution_type || 'Apport',
-          formatCurrency(c.amount),
+          formatCurrencyCIV(c.amount),
           (c.description || '-').substring(0, 30),
         ];
       }),
@@ -355,7 +355,7 @@ export function exportAssociateDetailPDF(associate: Associate, contributions: Co
   yPos += 8;
   doc.text(`Adresse: ${associate.address || '-'}`, 25, yPos);
   yPos += 8;
-  doc.text(`Date d'entrée: ${formatDate(associate.entry_date)}`, 25, yPos);
+  doc.text(`Date d'entrée: ${formatDateShort(associate.entry_date)}`, 25, yPos);
   yPos += 8;
   doc.text(`Statut: ${associate.is_active ? 'Actif' : 'Inactif'}`, 25, yPos);
   
@@ -367,7 +367,7 @@ export function exportAssociateDetailPDF(associate: Associate, contributions: Co
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
-  doc.text(`Total apports: ${formatCurrency(associate.total_contribution || 0)}`, 30, yPos + 12);
+  doc.text(`Total apports: ${formatCurrencyCIV(associate.total_contribution || 0)}`, 30, yPos + 12);
   doc.text(`Taux: ${(associate.participation_rate || 0).toFixed(2)}%`, 110, yPos + 12);
   doc.text(`Nb apports: ${assocContribs.length}`, 160, yPos + 12);
   
@@ -383,9 +383,9 @@ export function exportAssociateDetailPDF(associate: Associate, contributions: Co
       startY: yPos + 5,
       head: [['Date', 'Type', 'Montant', 'Description']],
       body: assocContribs.map(c => [
-        formatDate(c.contribution_date),
+        formatDateShort(c.contribution_date),
         c.contribution_type || 'Apport',
-        formatCurrency(c.amount),
+        formatCurrencyCIV(c.amount),
         (c.description || '-').substring(0, 40),
       ]),
       headStyles: {
