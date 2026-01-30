@@ -1,1 +1,7 @@
 project_id = "qecfqjcbgrwabojjakmn"
+
+[functions.admin-manage-users]
+verify_jwt = false
+
+[functions.totp-auth]
+verify_jwt = false

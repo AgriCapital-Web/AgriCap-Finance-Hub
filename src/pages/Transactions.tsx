@@ -7,14 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
 import { usePaginatedTransactions } from '@/hooks/usePaginatedTransactions';
 import { useTransactionSummary } from '@/hooks/useTransactions';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate } from '@/lib/mockData';
 import { exportTransactionsPDFPro } from '@/lib/pdfExportPro';
 import { exportTransactionsExcel } from '@/lib/excelExport';
-import { ArrowDownCircle, ArrowUpCircle, CheckCircle2, Clock, Search, Download, FileText, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  ArrowDownCircle, ArrowUpCircle, CheckCircle2, Clock, Search, Download, FileText, RefreshCw,
+  MoreHorizontal, Send, CheckCircle, XCircle, Lock, MessageSquare, Loader2
+} from 'lucide-react';
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   draft: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700 border-gray-200' },
@@ -30,8 +40,13 @@ const Transactions = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [actionDialog, setActionDialog] = useState<{ open: boolean; txId: string; action: string; currentStatus: string }>({ open: false, txId: '', action: '', currentStatus: '' });
+  const [comment, setComment] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
   
-  // Construire les filtres pour le hook paginé
+  const { user, role, isSuperAdmin, isAdmin } = useAuth();
+  const { toast } = useToast();
+  
   const filters = useMemo(() => ({
     type: typeFilter !== 'all' ? typeFilter as 'income' | 'expense' : undefined,
     status: statusFilter !== 'all' ? statusFilter as any : undefined,
@@ -52,6 +67,81 @@ const Transactions = () => {
   
   const { summary } = useTransactionSummary();
   const { departments } = useDepartments();
+
+  const getNextStatus = (currentStatus: string): string => {
+    switch (currentStatus) {
+      case 'draft': return 'submitted';
+      case 'submitted': return 'raf_validated';
+      case 'raf_validated': return 'dg_validated';
+      case 'dg_validated': return 'locked';
+      default: return currentStatus;
+    }
+  };
+
+  const canPerformAction = (txStatus: string, action: string): boolean => {
+    if (action === 'submit') return txStatus === 'draft';
+    if (action === 'validate_raf') return (role === 'raf' || isSuperAdmin || isAdmin) && txStatus === 'submitted';
+    if (action === 'validate_dg') return isSuperAdmin && txStatus === 'raf_validated';
+    if (action === 'lock') return (isSuperAdmin || isAdmin) && txStatus === 'dg_validated';
+    if (action === 'reject') return (role === 'raf' || isSuperAdmin || isAdmin) && ['submitted', 'raf_validated'].includes(txStatus);
+    return false;
+  };
+
+  const handleAction = async () => {
+    if (!user) return;
+    setActionLoading(true);
+    
+    try {
+      const newStatus = actionDialog.action === 'reject' ? 'rejected' : getNextStatus(actionDialog.currentStatus);
+      
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({ validation_status: newStatus as any })
+        .eq('id', actionDialog.txId);
+
+      if (updateError) throw updateError;
+
+      const { error: validationError } = await supabase
+        .from('validations')
+        .insert({
+          transaction_id: actionDialog.txId,
+          from_status: actionDialog.currentStatus as any,
+          to_status: newStatus as any,
+          validated_by: user.id,
+          comment: comment || null,
+        });
+
+      if (validationError) throw validationError;
+
+      toast({
+        title: actionDialog.action === 'reject' ? 'Transaction rejetée' : 'Statut mis à jour',
+        description: `Nouveau statut: ${statusLabels[newStatus]?.label || newStatus}`,
+      });
+
+      setActionDialog({ open: false, txId: '', action: '', currentStatus: '' });
+      setComment('');
+      refetch();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openActionDialog = (txId: string, action: string, currentStatus: string) => {
+    setActionDialog({ open: true, txId, action, currentStatus });
+  };
+
+  const getActionLabel = (action: string): string => {
+    switch (action) {
+      case 'submit': return 'Soumettre';
+      case 'validate_raf': return 'Valider (RAF)';
+      case 'validate_dg': return 'Valider (DG)';
+      case 'lock': return 'Verrouiller';
+      case 'reject': return 'Rejeter';
+      default: return action;
+    }
+  };
 
   const handleExportPDF = () => {
     exportTransactionsPDFPro(transactions, 'Journal des Transactions', 'Toutes périodes');
@@ -184,11 +274,11 @@ const Transactions = () => {
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Montant</TableHead>
                   <TableHead>Statut</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  // Skeleton loading
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
@@ -197,17 +287,19 @@ const Transactions = () => {
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 mx-auto" /></TableCell>
                     </TableRow>
                   ))
                 ) : transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Aucune transaction trouvée
                     </TableCell>
                   </TableRow>
                 ) : (
                   transactions.map((tx) => {
                     const status = statusLabels[tx.validation_status || 'draft'];
+                    const txStatus = tx.validation_status || 'draft';
                     return (
                       <TableRow key={tx.id} className="hover:bg-muted/30">
                         <TableCell>{formatDate(tx.date)}</TableCell>
@@ -235,6 +327,58 @@ const Transactions = () => {
                             {status.label}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                          {txStatus !== 'locked' && txStatus !== 'rejected' && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canPerformAction(txStatus, 'submit') && (
+                                  <DropdownMenuItem onClick={() => openActionDialog(tx.id, 'submit', txStatus)}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Soumettre
+                                  </DropdownMenuItem>
+                                )}
+                                {canPerformAction(txStatus, 'validate_raf') && (
+                                  <DropdownMenuItem onClick={() => openActionDialog(tx.id, 'validate_raf', txStatus)}>
+                                    <CheckCircle className="h-4 w-4 mr-2 text-amber-600" />
+                                    Valider (RAF)
+                                  </DropdownMenuItem>
+                                )}
+                                {canPerformAction(txStatus, 'validate_dg') && (
+                                  <DropdownMenuItem onClick={() => openActionDialog(tx.id, 'validate_dg', txStatus)}>
+                                    <CheckCircle className="h-4 w-4 mr-2 text-emerald-600" />
+                                    Valider (DG)
+                                  </DropdownMenuItem>
+                                )}
+                                {canPerformAction(txStatus, 'lock') && (
+                                  <DropdownMenuItem onClick={() => openActionDialog(tx.id, 'lock', txStatus)}>
+                                    <Lock className="h-4 w-4 mr-2 text-purple-600" />
+                                    Verrouiller
+                                  </DropdownMenuItem>
+                                )}
+                                {canPerformAction(txStatus, 'reject') && (
+                                  <DropdownMenuItem 
+                                    onClick={() => openActionDialog(tx.id, 'reject', txStatus)}
+                                    className="text-red-600"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Rejeter
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          {txStatus === 'locked' && (
+                            <Lock className="h-4 w-4 mx-auto text-purple-600" />
+                          )}
+                          {txStatus === 'rejected' && (
+                            <XCircle className="h-4 w-4 mx-auto text-red-600" />
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -243,7 +387,6 @@ const Transactions = () => {
             </Table>
           </div>
           
-          {/* Pagination */}
           <DataTablePagination
             page={pagination.page}
             pageSize={pagination.pageSize}
@@ -257,6 +400,49 @@ const Transactions = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Action Confirmation Dialog */}
+      <Dialog open={actionDialog.open} onOpenChange={(open) => { if (!open) setActionDialog({ open: false, txId: '', action: '', currentStatus: '' }); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {actionDialog.action === 'reject' ? 'Rejeter la transaction' : `Confirmer: ${getActionLabel(actionDialog.action)}`}
+            </DialogTitle>
+            <DialogDescription>
+              {actionDialog.action === 'reject' 
+                ? 'Êtes-vous sûr de vouloir rejeter cette transaction ?'
+                : `Vous allez passer cette transaction au statut "${statusLabels[getNextStatus(actionDialog.currentStatus)]?.label}"`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="comment">
+              <MessageSquare className="h-4 w-4 inline mr-2" />
+              Commentaire (optionnel)
+            </Label>
+            <Textarea
+              id="comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Ajouter un commentaire..."
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActionDialog({ open: false, txId: '', action: '', currentStatus: '' })} disabled={actionLoading}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleAction}
+              disabled={actionLoading}
+              variant={actionDialog.action === 'reject' ? 'destructive' : 'default'}
+            >
+              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };
