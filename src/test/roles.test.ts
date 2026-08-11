@@ -19,18 +19,19 @@ describe("RBAC — permissions par rôle", () => {
     expect(hasPermission(r, PERMISSIONS.VALIDATE_PAYMENTS)).toBe(true);
     expect(hasPermission(r, PERMISSIONS.CREATE_SOUSCRIPTION)).toBe(false);
   });
-  it("technicien: plantations oui, paiements/souscriptions non", () => {
-    const r = [ROLES.TECHNICIEN];
+  it("chef d'équipe technique: plantations oui, paiements/souscriptions non", () => {
+    const r = [ROLES.CHEF_EQUIPE_TECHNIQUE];
     expect(hasPermission(r, PERMISSIONS.VIEW_PLANTATIONS)).toBe(true);
     expect(hasPermission(r, PERMISSIONS.VIEW_PAIEMENTS)).toBe(false);
     expect(hasPermission(r, PERMISSIONS.VIEW_SOUSCRIPTIONS)).toBe(false);
   });
-  it("user (souscripteur) sans permission staff", () => {
-    const r = [ROLES.USER];
+  it("rôle obsolète (souscripteur) sans permission staff", () => {
+    const r = ["user"];
     expect(hasPermission(r, PERMISSIONS.CREATE_SOUSCRIPTION)).toBe(false);
     expect(hasPermission(r, PERMISSIONS.MANAGE_USERS)).toBe(false);
     expect(hasPermission(r, PERMISSIONS.VIEW_PARAMETRES)).toBe(false);
   });
+
   it("service_client: validation + tickets", () => {
     const r = [ROLES.SERVICE_CLIENT];
     expect(hasPermission(r, PERMISSIONS.VALIDATE_PAYMENTS)).toBe(true);
