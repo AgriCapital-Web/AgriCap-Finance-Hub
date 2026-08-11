@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logoGreen from "@/assets/logo-green.png";
 import { User, Mail, Phone, Briefcase, MapPin, FileText, KeyRound, AtSign } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ROLES = [
   { value: "commercial", label: "Commercial (Comm)" },
@@ -171,14 +172,7 @@ const AccountRequest = () => {
         throw new Error(payload?.message || payload?.error || functionMessage || "Envoi impossible");
       }
 
-      // Try to send notification (non-blocking)
-      try {
-        await supabase.functions.invoke('send-account-request-notification', {
-          body: { requestData: { ...formData, region: regionName, departement: deptName } }
-        });
-      } catch (notifError) {
-        console.log('Notification error (non-blocking):', notifError);
-      }
+      // La notification aux administrateurs est envoyée côté serveur par submit-account-request.
 
       toast({
         title: payload?.immediate_access ? "Compte créé" : "Demande envoyée",
@@ -193,7 +187,7 @@ const AccountRequest = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message || "Impossible d'envoyer la demande",
+        description: getSafeErrorMessage(error) || "Impossible d'envoyer la demande",
       });
     } finally {
       setIsSubmitting(false);

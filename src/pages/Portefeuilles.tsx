@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Wallet, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Portefeuilles = () => {
   const [portefeuilles, setPortefeuilles] = useState<any[]>([]);
@@ -66,7 +67,7 @@ const Portefeuilles = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);
@@ -125,7 +126,7 @@ const Portefeuilles = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };

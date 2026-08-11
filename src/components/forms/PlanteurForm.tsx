@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import FileUpload from "@/components/ui/file-upload";
 import { X } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface PlanteurFormProps {
   planteur?: any;
@@ -109,7 +110,7 @@ const PlanteurForm = ({ planteur, onSuccess, onCancel }: PlanteurFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

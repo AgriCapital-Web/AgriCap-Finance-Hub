@@ -14,8 +14,45 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    console.log("Webhook payload:", JSON.stringify(body, null, 2));
+    // --- Vérification obligatoire de la signature HMAC KKiaPay (fail-closed) ---
+    const webhookSecret = Deno.env.get("KKIAPAY_WEBHOOK_SECRET") ?? Deno.env.get("KKIAPAY_PRIVATE_KEY");
+    if (!webhookSecret) {
+      console.error("KKIAPAY_WEBHOOK_SECRET non configuré — webhook refusé");
+      return new Response(JSON.stringify({ success: false, error: "Webhook non configuré" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 503,
+      });
+    }
+
+    const signature = req.headers.get("x-kkiapay-signature");
+    if (!signature) {
+      return new Response(JSON.stringify({ success: false, error: "Signature manquante" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401,
+      });
+    }
+
+    const rawBody = await req.text();
+    const key = await crypto.subtle.importKey(
+      "raw", new TextEncoder().encode(webhookSecret),
+      { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    );
+    const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const expected = Array.from(new Uint8Array(sigBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+    if (signature.toLowerCase().replace(/^sha256=/, "") !== expected) {
+      console.error("Signature KKiaPay invalide");
+      return new Response(JSON.stringify({ success: false, error: "Signature invalide" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401,
+      });
+    }
+
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: "Payload invalide" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+      });
+    }
     
     const { status, transactionId, amount, fees, source, data, performed_at } = body;
     console.log(`Transaction ${transactionId}: Status=${status}, Amount=${amount}`);
@@ -142,7 +179,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Webhook error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message, acknowledged: true }),
+      JSON.stringify({ success: false, error: "Erreur de traitement", acknowledged: true }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   }

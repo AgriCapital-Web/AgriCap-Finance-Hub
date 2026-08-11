@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,25 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    // Réservé aux administrateurs authentifiés (ou appel interne service role)
+    const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const deny = (msg: string, status: number) =>
+      new Response(JSON.stringify({ success: false, error: msg }), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+
+    if (!bearer) return deny("Non authentifié", 401);
+    if (bearer !== serviceKey) {
+      const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: userData } = await admin.auth.getUser(bearer);
+      if (!userData?.user) return deny("Session invalide", 401);
+      const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userData.user.id });
+      if (!isAdmin) return deny("Accès réservé aux administrateurs", 403);
+    }
+
     const { email, nom_complet, login_url, used_own_password, temp_password } = await req.json();
     if (!email) throw new Error("email requis");
 
@@ -45,7 +65,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    return new Response(JSON.stringify({ success: false, error: e.message }), {
+    console.error("send-account-approved-notification error", e);
+    return new Response(JSON.stringify({ success: false, error: "Envoi impossible" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

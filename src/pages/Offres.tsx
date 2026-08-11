@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 type Offre = Tables<'offres'>;
 type Promotion = Tables<'promotions'>;
@@ -182,7 +183,7 @@ const Offres = () => {
       setIsPromoDialogOpen(false);
     },
     onError: (error: any) => {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   });
 

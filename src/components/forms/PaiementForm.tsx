@@ -18,6 +18,9 @@ import { X } from "lucide-react";
 import { usePromotionActive } from "@/hooks/usePromotionActive";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { parseAmount } from "@/lib/amount";
+import { getSafeErrorMessage } from "@/lib/safeError";
+
 
 interface PaiementFormProps {
   paiement?: any;
@@ -157,7 +160,7 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };
@@ -176,7 +179,7 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };
@@ -291,7 +294,7 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setUploading(false);
@@ -300,10 +303,24 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
 
   const onSubmit = async (data: any) => {
     try {
+      // Validation stricte des montants financiers
+      const amountFields = ["montant_paye", "montant_theorique"] as const;
+      const validated: Record<string, number> = {};
+      for (const field of amountFields) {
+        if (data[field] === undefined || data[field] === null || data[field] === "") continue;
+        const parsed = parseAmount(data[field]);
+        if (!parsed.ok) {
+          toast({ variant: "destructive", title: "Montant invalide", description: parsed.error });
+          return;
+        }
+        validated[field] = parsed.value;
+      }
+
       const user = await supabase.auth.getUser();
-      
+
       const paiementData = {
         ...data,
+        ...validated,
         created_by: user.data.user?.id,
         statut: "en_attente",
         date_upload_preuve: new Date().toISOString(),
@@ -333,10 +350,11 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error, "Impossible d'enregistrer le paiement"),
       });
     }
   };
+
 
   const montantCalculeDA = souscripteurId && typePaiement === "DA" 
     ? (promotionActive ? 30000 - (30000 * promotionActive.pourcentage_reduction / 100) : 30000)

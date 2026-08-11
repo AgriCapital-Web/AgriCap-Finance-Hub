@@ -10,6 +10,7 @@ import { useRealtime } from "@/hooks/useRealtime";
 import { logActivity } from "@/utils/traceability";
 import { Search, MapPin, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const GestionRegions = () => {
   const { toast } = useToast();
@@ -45,7 +46,7 @@ const GestionRegions = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);
@@ -77,7 +78,7 @@ const GestionRegions = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };

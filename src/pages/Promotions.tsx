@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, CheckCircle, XCircle, Percent, Calculator } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Promotions = () => {
   const { toast } = useToast();
@@ -96,7 +97,7 @@ const Promotions = () => {
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   });
 

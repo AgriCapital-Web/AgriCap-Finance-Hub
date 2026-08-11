@@ -56,6 +56,7 @@ import {
   Smartphone
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface Paiement {
   id: string;
@@ -185,7 +186,7 @@ const GestionPaiements = () => {
         toast({
           variant: "destructive",
           title: "Erreur de vérification",
-          description: err.message
+          description: getSafeErrorMessage(err)
         });
       }
 
@@ -448,7 +449,7 @@ const GestionPaiements = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     } finally {
       setLoading(false);
@@ -513,7 +514,7 @@ const GestionPaiements = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     } finally {
       setLoading(false);
@@ -580,7 +581,7 @@ const GestionPaiements = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     } finally {
       setLoading(false);

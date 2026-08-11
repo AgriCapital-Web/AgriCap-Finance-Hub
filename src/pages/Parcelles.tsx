@@ -17,6 +17,7 @@ import { Search, Plus, Layers, MapPin, BarChart3 } from "lucide-react";
 import { useUserZones } from "@/hooks/useUserZones";
 import { offlineInsert } from "@/lib/offlineWrite";
 import { getCachedItems, STORES } from "@/lib/offlineDb";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Parcelles = () => {
   const [parcelles, setParcelles] = useState<any[]>([]);
@@ -58,7 +59,7 @@ const Parcelles = () => {
       setParcelles(parcellesData || []);
       setProprietaires(propsData || []);
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     } finally { setLoading(false); }
   };
 
@@ -97,7 +98,7 @@ const Parcelles = () => {
       setFormData({ proprietaire_id: "", nom: "", surface_totale_ha: "", district_id: "", region_id: "", departement_id: "", sous_prefecture_id: "", village: "", date_convention: "", notes: "" });
       fetchData();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     }
   };
 

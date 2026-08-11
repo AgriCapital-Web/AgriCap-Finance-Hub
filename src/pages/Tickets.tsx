@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, Plus, Eye } from "lucide-react";
 import TicketForm from "@/components/forms/TicketForm";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Tickets = () => {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -30,7 +31,7 @@ const Tickets = () => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } else {
       setTickets(data || []);
     }

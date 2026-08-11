@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { cacheAuthCredentials, getCachedAuth, hashPassword } from '@/lib/offlineDb';
+import { cacheAuthCredentials, getCachedAuth, hashPassword, generateAuthSalt } from '@/lib/offlineDb';
+import { getSafeErrorMessage } from '@/lib/safeError';
+
 
 interface AuthContextType {
   user: User | null;
@@ -99,25 +101,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfileAndRoles]);
 
   const signIn = async (usernameOrEmail: string, password: string) => {
+    // Authentification hors ligne : comparaison PBKDF2 avec le sel unique mis en cache.
+    const tryOfflineAuth = async (identifier?: string) => {
+      const cached = await getCachedAuth();
+      if (!cached || !cached.salt) return false;
+      if (identifier) {
+        const emailMatch = cached.email === identifier;
+        const usernameMatch = cached.profile?.username === identifier;
+        if (!emailMatch && !usernameMatch) return false;
+      }
+      const hashed = await hashPassword(password, cached.salt);
+      if (hashed !== cached.passwordHash) return false;
+      setUser({ id: cached.profile?.user_id, email: cached.email } as any);
+      setProfile({ ...cached.profile, offline_session: true });
+      setUserRoles(cached.roles);
+      setLoading(false);
+      return true;
+    };
+
     try {
       let email = usernameOrEmail;
-      const hashed = await hashPassword(password);
-      
+
       if (!navigator.onLine) {
-        // Offline authentication with cached credentials
         const cached = await getCachedAuth();
-        if (!cached) {
+        if (!cached || !cached.salt) {
           return { error: { message: 'Aucune donnée hors ligne disponible. Connectez-vous en ligne d\'abord.' } };
         }
-        // Check by email or username
-        const emailMatch = cached.email === usernameOrEmail;
-        const usernameMatch = cached.profile?.username === usernameOrEmail;
-        if ((emailMatch || usernameMatch) && cached.passwordHash === hashed) {
-          // Simulate a user object for offline mode
-          setUser({ id: cached.profile?.user_id, email: cached.email } as any);
-          setProfile(cached.profile);
-          setUserRoles(cached.roles);
-          setLoading(false);
+        if (await tryOfflineAuth(usernameOrEmail)) {
           toast({
             title: "Connexion hors ligne",
             description: "Mode hors ligne activé. Les données seront synchronisées dès le retour du réseau.",
@@ -148,12 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         // Fallback to offline auth if network error
         if (error.message?.includes('fetch') || error.message?.includes('network')) {
-          const cached = await getCachedAuth();
-          if (cached && (cached.email === email) && cached.passwordHash === hashed) {
-            setUser({ id: cached.profile?.user_id, email: cached.email } as any);
-            setProfile(cached.profile);
-            setUserRoles(cached.roles);
-            setLoading(false);
+          if (await tryOfflineAuth(email)) {
             toast({ title: "Connexion hors ligne", description: "Réseau instable — mode hors ligne activé." });
             return { error: null };
           }
@@ -161,19 +166,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast({
           variant: "destructive",
           title: "Erreur de connexion",
-          description: error.message === 'Invalid login credentials' ? 'Identifiants incorrects' : error.message,
+          description: getSafeErrorMessage(error, 'Identifiants incorrects'),
         });
         return { error };
       }
 
-      // Cache credentials for offline use
+      // Cache credentials for offline use (sel aléatoire unique par appareil/utilisateur)
       try {
         const userId = authData.user?.id;
         const { data: prof } = await (supabase as any).from('profiles').select('*').eq('user_id', userId).maybeSingle();
         const { data: roles } = await (supabase as any).from('user_roles').select('role').eq('user_id', userId);
         const rolesList = roles?.map((r: any) => r.role) || [];
         if (prof) {
-          await cacheAuthCredentials(email, hashed, prof, rolesList);
+          const salt = generateAuthSalt();
+          const hashed = await hashPassword(password, salt);
+          await cacheAuthCredentials(email, hashed, salt, prof, rolesList);
         }
       } catch (cacheErr) {
         console.warn('Failed to cache auth:', cacheErr);
@@ -185,13 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Sign in error:', error);
       // Last resort: try offline auth
       try {
-        const cached = await getCachedAuth();
-        const hashed = await hashPassword(password);
-        if (cached && cached.passwordHash === hashed) {
-          setUser({ id: cached.profile?.user_id, email: cached.email } as any);
-          setProfile(cached.profile);
-          setUserRoles(cached.roles);
-          setLoading(false);
+        if (await tryOfflineAuth()) {
           toast({ title: "Connexion hors ligne", description: "Erreur réseau — mode hors ligne activé." });
           return { error: null };
         }
@@ -199,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error };
     }
   };
+
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();

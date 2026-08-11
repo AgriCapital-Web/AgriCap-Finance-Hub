@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const PortefeuilleClients = () => {
   const [planteurs, setPlanteurs] = useState<any[]>([]);
@@ -47,7 +48,7 @@ const PortefeuilleClients = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

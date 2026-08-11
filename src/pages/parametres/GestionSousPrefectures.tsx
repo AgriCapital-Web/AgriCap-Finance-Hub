@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtime } from "@/hooks/useRealtime";
 import { logActivity } from "@/utils/traceability";
 import { Search, MapPin, AlertTriangle } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const GestionSousPrefectures = () => {
   const { toast } = useToast();
@@ -30,7 +31,7 @@ const GestionSousPrefectures = () => {
       setDepartements(depData || []);
       setSousPrefectures(spData || []);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,7 @@ const GestionSousPrefectures = () => {
       toast({ title: "Succès", description: `Sous-préfecture ${!currentStatus ? "activée" : "désactivée"}` });
       fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 

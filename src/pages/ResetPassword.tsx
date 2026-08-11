@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logoGreen from "@/assets/logo-green.png";
 import { Eye, EyeOff } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -60,7 +61,7 @@ const ResetPassword = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message || "Impossible de réinitialiser le mot de passe",
+        description: getSafeErrorMessage(error) || "Impossible de réinitialiser le mot de passe",
       });
     } finally {
       setIsLoading(false);

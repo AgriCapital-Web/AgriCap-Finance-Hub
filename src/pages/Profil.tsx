@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Phone, Mail, MapPin, Shield, Camera, UserPlus, Save } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Profil = () => {
   const { user, profile: authProfile } = useAuth();
@@ -72,7 +73,7 @@ const Profil = () => {
       await fetchProfile();
       toast({ title: "Profil mis à jour", description: "Vos informations ont été enregistrées." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
     setLoading(false);
   };
@@ -98,7 +99,7 @@ const Profil = () => {
       setProfile({ ...profile, [field]: publicUrl });
       toast({ title: "Photo mise à jour" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur upload", description: error.message });
+      toast({ variant: "destructive", title: "Erreur upload", description: getSafeErrorMessage(error) });
     }
     setUploading(false);
   };

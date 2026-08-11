@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Sprout, DollarSign, FileText, Settings, Camera } from "lucide-react";
 import TicketForm from "@/components/forms/TicketForm";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const PlanteurDetail = () => {
   const { id } = useParams();
@@ -87,7 +88,7 @@ const PlanteurDetail = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

@@ -3,10 +3,34 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 const json = (p: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(p), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status });
+
+
+/** Autorise soit un administrateur authentifié, soit un appel interne (service role / secret cron). */
+async function authorize(req: Request, admin: any): Promise<Response | null> {
+  const deny = (msg: string, status: number) =>
+    new Response(JSON.stringify({ success: false, error: msg }), {
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET");
+
+  if (serviceKey && bearer === serviceKey) return null;
+  if (cronSecret && req.headers.get("x-cron-secret") === cronSecret) return null;
+  if (!bearer) return deny("Non authentifié", 401);
+
+  const { data } = await admin.auth.getUser(bearer);
+  const user = data?.user;
+  if (!user) return deny("Session invalide", 401);
+  const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: user.id });
+  if (!isAdmin) return deny("Accès réservé aux administrateurs", 403);
+  return null;
+}
 
 const DEMO_EMAIL = "demo@agricapital.ci";
 const DEMO_USERNAME = "agricapital";
@@ -21,6 +45,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
+
+    const denied = await authorize(req, admin);
+    if (denied) return denied;
 
     let userId: string | null = null;
     for (let page = 1; page <= 10; page++) {
@@ -53,6 +80,7 @@ serve(async (req) => {
 
     return json({ success: true, username: DEMO_USERNAME, user_id: userId });
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    console.error("seed-demo-account error", e);
+    return json({ error: "Erreur interne" }, 500);
   }
 });

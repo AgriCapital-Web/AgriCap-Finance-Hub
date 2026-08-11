@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, User, FileText } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface ActivityLogProps {
   entityType: string;
@@ -68,7 +69,7 @@ export const ActivityLog = ({ entityType, entityId, showAddNote = true }: Activi
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

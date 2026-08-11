@@ -193,20 +193,22 @@ export async function getSyncQueueStats(): Promise<{ pending: number; error: num
 }
 
 // Auth cache for offline login
-export async function cacheAuthCredentials(email: string, passwordHash: string, profile: any, roles: string[]): Promise<void> {
+export async function cacheAuthCredentials(email: string, passwordHash: string, salt: string, profile: any, roles: string[]): Promise<void> {
   await putItem(STORES.AUTH_CACHE, {
     key: 'last_auth',
     email,
     passwordHash,
+    salt,
     profile,
     roles,
     cachedAt: Date.now(),
   });
 }
 
-export async function getCachedAuth(): Promise<{ email: string; passwordHash: string; profile: any; roles: string[]; cachedAt: number } | null> {
+export async function getCachedAuth(): Promise<{ email: string; passwordHash: string; salt?: string; profile: any; roles: string[]; cachedAt: number } | null> {
   return getItem(STORES.AUTH_CACHE, 'last_auth');
 }
+
 
 // Meta: last sync timestamps
 export async function setLastSyncTime(table: string): Promise<void> {
@@ -241,13 +243,28 @@ export async function cacheReferenceData(storeName: string, items: any[]): Promi
 export const getCachedItems = (storeName: string) => getAllItems(storeName);
 
 // Simple hash for offline auth
-export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + 'agricapital_salt_2024');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+/** Génère un sel aléatoire par utilisateur (hex) pour le hash de connexion hors ligne. */
+export function generateAuthSalt(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * Dérive un hash de mot de passe via PBKDF2-SHA256 (210 000 itérations)
+ * avec un sel unique par utilisateur, généré aléatoirement et stocké localement.
+ */
+export async function hashPassword(password: string, salt: string): Promise<string> {
+  if (!salt) throw new Error('salt requis');
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: encoder.encode(salt), iterations: 210000, hash: 'SHA-256' },
+    key,
+    256,
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 
 // Get offline data stats
 export async function getOfflineStats(): Promise<Record<string, number>> {

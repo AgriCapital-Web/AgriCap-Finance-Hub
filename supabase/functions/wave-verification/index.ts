@@ -3,8 +3,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
 };
+
+/** Masque un nom : "Jean Kouassi" -> "J. K." */
+function maskName(full: string): string {
+  return full.trim().split(/\s+/).filter(Boolean)
+    .map((part) => `${part[0].toUpperCase()}.`).join(' ') || 'N/A';
+}
+
+/** Masque un téléphone : "0759566087" -> "07******87" */
+function maskPhone(tel: string | null): string {
+  if (!tel) return '';
+  return tel.length <= 4 ? '****' : `${tel.slice(0, 2)}${'*'.repeat(tel.length - 4)}${tel.slice(-2)}`;
+}
 
 serve(async (req) => {
   // CORS preflight
@@ -17,7 +29,15 @@ serve(async (req) => {
     const apiKey = req.headers.get('X-API-Key');
     const expectedApiKey = Deno.env.get('WAVE_API_KEY');
     
-    if (expectedApiKey && apiKey !== expectedApiKey) {
+    if (!expectedApiKey) {
+      console.error('WAVE_API_KEY non configuré — accès refusé');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Service non configuré' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (apiKey !== expectedApiKey) {
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -191,8 +211,9 @@ serve(async (req) => {
     const response = {
       success: true,
       souscripteur: {
-        nom_complet: `${souscripteur.nom_complet} ${souscripteur.prenoms}`,
-        telephone: souscripteur.telephone,
+        // PII minimisée : initiales seulement + téléphone masqué
+        nom_affichage: maskName(`${souscripteur.nom_complet ?? ''} ${souscripteur.prenoms ?? ''}`),
+        telephone: maskPhone(souscripteur.telephone),
         superficie_totale: superficieTotale,
       },
       type_paiement: typePaiement,
@@ -219,7 +240,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error?.message || 'Erreur interne du serveur' 
+        error: 'Erreur interne du serveur' 
       }),
       { 
         status: 500, 
