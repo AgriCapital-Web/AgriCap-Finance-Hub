@@ -1,180 +1,245 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-
-type AppRole = 'super_admin' | 'admin' | 'comptable' | 'raf' | 'cabinet' | 'auditeur';
-
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string;
-  phone?: string;
-  title?: string;
-  avatar_url?: string;
-  is_active: boolean;
-}
+import { cacheAuthCredentials, getCachedAuth, hashPassword } from '@/lib/offlineDb';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: Profile | null;
-  role: AppRole | null;
+  profile: any | null;
+  userRoles: string[];
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, metadata: { full_name: string; phone?: string; title?: string }) => Promise<{ error: Error | null }>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
+  hasRole: (role: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProfile = async (userId: string) => {
+  const loadProfileAndRoles = useCallback(async (userId: string) => {
     try {
-      const { data: profileData, error: profileError } = await supabase
+      let { data: profileData } = await (supabase as any)
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        return;
+      if (!profileData) {
+        const fallback = await (supabase as any)
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        profileData = fallback.data;
       }
 
-      setProfile(profileData);
+      setProfile(profileData || null);
 
-      // Fetch role
-      const { data: roleData, error: roleError } = await supabase
+      const { data: rolesData } = await (supabase as any)
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId)
-        .single();
+        .eq('user_id', userId);
 
-      if (roleError && roleError.code !== 'PGRST116') {
-        console.error('Error fetching role:', roleError);
-      }
-
-      if (roleData) {
-        setRole(roleData.role as AppRole);
-      }
+      setUserRoles(rolesData?.map((r: any) => r.role) || []);
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error('Error fetching user data:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
-        // Defer profile fetch with setTimeout to prevent deadlock
+        
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
+          setTimeout(async () => {
+            await loadProfileAndRoles(session.user.id);
           }, 0);
         } else {
           setProfile(null);
-          setRole(null);
+          setUserRoles([]);
         }
-
-        setLoading(false);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      // Stale/invalid refresh token → clean local storage so ProtectedRoute redirects to /login
+      if (error && /refresh.*token/i.test(error.message || '')) {
+        try { await supabase.auth.signOut(); } catch {}
+        setSession(null); setUser(null); setProfile(null); setUserRoles([]);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
-
+      
       if (session?.user) {
-        fetchProfile(session.user.id);
+        setTimeout(async () => {
+          await loadProfileAndRoles(session.user.id);
+          setLoading(false);
+        }, 0);
+      } else {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadProfileAndRoles]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (usernameOrEmail: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
-  const signUp = async (
-    email: string, 
-    password: string, 
-    metadata: { full_name: string; phone?: string; title?: string }
-  ) => {
-    try {
-      const redirectUrl = `${window.location.origin}/`;
+      let email = usernameOrEmail;
+      const hashed = await hashPassword(password);
       
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: metadata
+      if (!navigator.onLine) {
+        // Offline authentication with cached credentials
+        const cached = await getCachedAuth();
+        if (!cached) {
+          return { error: { message: 'Aucune donnée hors ligne disponible. Connectez-vous en ligne d\'abord.' } };
         }
-      });
+        // Check by email or username
+        const emailMatch = cached.email === usernameOrEmail;
+        const usernameMatch = cached.profile?.username === usernameOrEmail;
+        if ((emailMatch || usernameMatch) && cached.passwordHash === hashed) {
+          // Simulate a user object for offline mode
+          setUser({ id: cached.profile?.user_id, email: cached.email } as any);
+          setProfile(cached.profile);
+          setUserRoles(cached.roles);
+          setLoading(false);
+          toast({
+            title: "Connexion hors ligne",
+            description: "Mode hors ligne activé. Les données seront synchronisées dès le retour du réseau.",
+          });
+          return { error: null };
+        }
+        return { error: { message: 'Identifiants incorrects (mode hors ligne)' } };
+      }
 
-      if (error) throw error;
+      // Online: resolve username to email
+      if (!usernameOrEmail.includes('@')) {
+        const { data: resolved, error: rpcError } = await (supabase as any)
+          .rpc('resolve_username_email', { _username: usernameOrEmail });
+
+        if (rpcError || !resolved) {
+          toast({
+            variant: 'destructive',
+            title: 'Connexion impossible',
+            description: "Nom d'utilisateur introuvable",
+          });
+          return { error: { message: "Nom d'utilisateur introuvable" } };
+        }
+        email = resolved as string;
+      }
+
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        // Fallback to offline auth if network error
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          const cached = await getCachedAuth();
+          if (cached && (cached.email === email) && cached.passwordHash === hashed) {
+            setUser({ id: cached.profile?.user_id, email: cached.email } as any);
+            setProfile(cached.profile);
+            setUserRoles(cached.roles);
+            setLoading(false);
+            toast({ title: "Connexion hors ligne", description: "Réseau instable — mode hors ligne activé." });
+            return { error: null };
+          }
+        }
+        toast({
+          variant: "destructive",
+          title: "Erreur de connexion",
+          description: error.message === 'Invalid login credentials' ? 'Identifiants incorrects' : error.message,
+        });
+        return { error };
+      }
+
+      // Cache credentials for offline use
+      try {
+        const userId = authData.user?.id;
+        const { data: prof } = await (supabase as any).from('profiles').select('*').eq('user_id', userId).maybeSingle();
+        const { data: roles } = await (supabase as any).from('user_roles').select('role').eq('user_id', userId);
+        const rolesList = roles?.map((r: any) => r.role) || [];
+        if (prof) {
+          await cacheAuthCredentials(email, hashed, prof, rolesList);
+        }
+      } catch (cacheErr) {
+        console.warn('Failed to cache auth:', cacheErr);
+      }
+
+      toast({ title: "Connexion réussie", description: "Bienvenue sur AgriCapital CRM" });
       return { error: null };
-    } catch (error) {
-      return { error: error as Error };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      // Last resort: try offline auth
+      try {
+        const cached = await getCachedAuth();
+        const hashed = await hashPassword(password);
+        if (cached && cached.passwordHash === hashed) {
+          setUser({ id: cached.profile?.user_id, email: cached.email } as any);
+          setProfile(cached.profile);
+          setUserRoles(cached.roles);
+          setLoading(false);
+          toast({ title: "Connexion hors ligne", description: "Erreur réseau — mode hors ligne activé." });
+          return { error: null };
+        }
+      } catch {}
+      return { error };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setRole(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de se déconnecter",
+      });
+    } else {
+      toast({
+        title: "Déconnexion",
+        description: "À bientôt !",
+      });
+    }
   };
 
-  const isAdmin = role === 'super_admin' || role === 'admin';
-  const isSuperAdmin = role === 'super_admin';
+  const hasRole = (role: string) => {
+    return userRoles.includes(role);
+  };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      role,
-      loading,
-      signIn,
-      signUp,
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      userRoles, 
+      loading, 
+      signIn, 
       signOut,
-      isAdmin,
-      isSuperAdmin
+      hasRole 
     }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}

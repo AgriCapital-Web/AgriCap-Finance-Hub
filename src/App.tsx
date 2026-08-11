@@ -2,28 +2,98 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import InstallPrompt from "@/components/pwa/InstallPrompt";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
-import Income from "./pages/Income";
-import Expenses from "./pages/Expenses";
-import Transactions from "./pages/Transactions";
-import Reports from "./pages/Reports";
-import Users from "./pages/Users";
-import Settings from "./pages/Settings";
-import Associates from "./pages/Associates";
-import Stakeholders from "./pages/Stakeholders";
+import Souscriptions from "./pages/Souscriptions";
+import PlanteurDetail from "./pages/PlanteurDetail";
+import Plantations from "./pages/Plantations";
+import GestionPaiements from "./pages/GestionPaiements";
+import RapportsFinanciers from "./pages/RapportsFinanciers";
+import RapportsTechniques from "./pages/RapportsTechniques";
+import Commissions from "./pages/Commissions";
+import Portefeuilles from "./pages/Portefeuilles";
+import NouvelleSouscription from "./pages/NouvelleSouscription";
+import Parametres from "./pages/Parametres";
+import Profil from "./pages/Profil";
+import HistoriqueComplet from "./pages/HistoriqueComplet";
+import AccountRequest from "./pages/AccountRequest";
+import Tickets from "./pages/Tickets";
+import ProprietairesTerres from "./pages/ProprietairesTerres";
+import Parcelles from "./pages/Parcelles";
 import Documents from "./pages/Documents";
-import Notifications from "./pages/Notifications";
-import Home from "./pages/Home";
-import Auth from "./pages/Auth";
-import InitSuperAdmin from "./pages/InitSuperAdmin";
-import OnboardingWizard from "./pages/OnboardingWizard";
+import Leads from "./pages/Leads";
+import SyncQueue from "./pages/SyncQueue";
+import PublicLead from "./pages/PublicLead";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+const DomainRouter = () => {
+  return (
+    <Routes>
+      {/* Page d'accueil = Login */}
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/account-request" element={<AccountRequest />} />
+
+      {/* Formulaire public prospects */}
+      <Route path="/leads/public" element={<PublicLead />} />
+      <Route path="/prospect" element={<PublicLead />} />
+
+      {/* Protected routes */}
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/leads" element={<Leads />} />
+      <Route path="/synchronisation" element={<SyncQueue />} />
+      <Route path="/souscriptions" element={<Souscriptions />} />
+      <Route path="/planteur/:id" element={<PlanteurDetail />} />
+      <Route path="/planteur/:id/historique" element={<HistoriqueComplet />} />
+      <Route path="/plantations" element={<Plantations />} />
+      <Route path="/proprietaires-terres" element={<ProprietairesTerres />} />
+      <Route path="/parcelles" element={<Parcelles />} />
+      <Route path="/documents" element={<Documents />} />
+      <Route path="/nouvelle-souscription" element={<NouvelleSouscription />} />
+      <Route path="/profil" element={<Profil />} />
+      
+      {/* Paiements */}
+      <Route path="/paiements" element={<GestionPaiements />} />
+      <Route path="/gestion-paiements" element={<Navigate to="/paiements" replace />} />
+      
+      {/* Redirections vers Paramètres */}
+      <Route path="/utilisateurs" element={<Navigate to="/parametres?tab=utilisateurs" replace />} />
+      <Route path="/equipes" element={<Navigate to="/parametres?tab=equipes" replace />} />
+      <Route path="/offres" element={<Navigate to="/parametres?tab=offres" replace />} />
+      <Route path="/promotions" element={<Navigate to="/parametres?tab=offres" replace />} />
+      <Route path="/portefeuille-clients" element={<Navigate to="/souscriptions" replace />} />
+      
+      <Route path="/account-requests" element={<Navigate to="/parametres?tab=demandes" replace />} />
+      
+      {/* Rapports */}
+      <Route path="/rapports-financiers" element={<RapportsFinanciers />} />
+      <Route path="/rapports-techniques" element={<RapportsTechniques />} />
+      
+      {/* Finances */}
+      <Route path="/commissions" element={<Commissions />} />
+      <Route path="/portefeuilles" element={<Portefeuilles />} />
+      
+      {/* Support */}
+      <Route path="/tickets" element={<Tickets />} />
+      
+      {/* Admin */}
+      <Route path="/parametres" element={<Parametres />} />
+      
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -31,30 +101,9 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <PWAInstallPrompt />
         <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/init-admin" element={<InitSuperAdmin />} />
-            <Route path="/onboarding" element={<OnboardingWizard />} />
-
-            {/* Protected routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/income" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Income /></ProtectedRoute>} />
-            <Route path="/expenses" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Expenses /></ProtectedRoute>} />
-            <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute requiredRoles={['super_admin']}><Users /></ProtectedRoute>} />
-            <Route path="/associates" element={<ProtectedRoute requiredRoles={['super_admin']}><Associates /></ProtectedRoute>} />
-            <Route path="/stakeholders" element={<ProtectedRoute requiredRoles={['super_admin', 'admin', 'comptable', 'raf']}><Stakeholders /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <InstallPrompt />
+          <DomainRouter />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
