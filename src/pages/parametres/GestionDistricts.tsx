@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtime } from "@/hooks/useRealtime";
 import { logActivity } from "@/utils/traceability";
 import { Search, MapPin, AlertTriangle } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const GestionDistricts = () => {
   const { toast } = useToast();
@@ -38,7 +39,7 @@ const GestionDistricts = () => {
       });
       setRegionCounts(counts);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -68,7 +69,7 @@ const GestionDistricts = () => {
       });
       fetchDistricts();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Shield, Edit, Users, Building2, Briefcase, Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const PERMISSIONS = [
   { id: "view_dashboard", label: "Voir le tableau de bord", category: "Général" },
@@ -125,7 +126,7 @@ const GestionRoles = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     } finally {
       setLoading(false);
@@ -191,7 +192,7 @@ const GestionRoles = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     } finally {
       setSaving(false);
@@ -217,7 +218,7 @@ const GestionRoles = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message
+        description: getSafeErrorMessage(error)
       });
     }
   };

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { X } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface DocumentsUploadFormProps {
   onSuccess: () => void;
@@ -104,7 +105,7 @@ const DocumentsUploadForm = ({ onSuccess }: DocumentsUploadFormProps) => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

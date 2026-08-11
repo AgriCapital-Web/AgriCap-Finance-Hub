@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtime } from "@/hooks/useRealtime";
 import { ROLE_LABELS } from "@/lib/roles";
 import { MapPin, Plus, Trash2, Users } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface ZoneAssignment {
   id: string;
@@ -109,7 +110,7 @@ const GestionZones = () => {
       }));
       setUsers(usersWithRoles);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -162,7 +163,7 @@ const GestionZones = () => {
       if (error.message?.includes("duplicate")) {
         toast({ variant: "destructive", title: "Erreur", description: "Cette zone est déjà assignée à cet utilisateur" });
       } else {
-        toast({ variant: "destructive", title: "Erreur", description: error.message });
+        toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
       }
     }
   };
@@ -174,7 +175,7 @@ const GestionZones = () => {
       toast({ title: "Succès", description: "Assignation supprimée" });
       fetchAll();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 

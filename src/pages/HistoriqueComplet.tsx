@@ -11,6 +11,7 @@ import { Download, Search, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const HistoriqueComplet = () => {
   const { id } = useParams();
@@ -41,7 +42,7 @@ const HistoriqueComplet = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);

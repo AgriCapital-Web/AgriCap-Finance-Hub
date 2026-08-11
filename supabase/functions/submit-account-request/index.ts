@@ -15,8 +15,7 @@ const VALID_ROLES = [
   "comptable", "service_client", "operations",
 ];
 
-// Rôles terrain autorisés à s'inscrire directement (accès immédiat, sans validation admin)
-const SELF_SERVICE_ROLES = ["commercial", "technicien"];
+// Aucun rôle ne peut être auto-attribué : toute demande passe par la validation d'un administrateur.
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -127,36 +126,30 @@ serve(async (req) => {
       return json({ error: reqErr.message, step: "insert_account_request", details: reqErr }, 400);
     }
 
-    // Inscription directe pour les rôles terrain : rôle attribué + profil actif immédiatement
-    const immediate = SELF_SERVICE_ROLES.includes(String(role_souhaite));
-    if (immediate) {
-      const { error: roleErr } = await admin
-        .from("user_roles")
-        .upsert({ user_id: userId, role: role_souhaite }, { onConflict: "user_id,role" });
-
-      if (roleErr) {
-        console.error("role assignment error", roleErr);
-        return json({
-          success: true,
-          user_id: userId,
-          username: cleanUsername,
-          immediate_access: false,
-          warning: "Compte créé mais rôle non attribué : contactez l'administrateur.",
-        });
-      }
-
-      await admin.from("profiles").update({ actif: true }).eq("id", userId);
-      await admin
-        .from("account_requests")
-        .update({ statut: "approuve", traite_le: new Date().toISOString() })
-        .eq("auth_user_id", userId);
+    // Notification interne aux administrateurs (appel serveur-à-serveur authentifié)
+    try {
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-account-request-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          requestData: {
+            nom_complet, email: cleanEmail, telephone,
+            username: cleanUsername, poste: poste_souhaite ?? role_souhaite,
+          },
+        }),
+      });
+    } catch (notifErr) {
+      console.warn("notification admin non envoyée", notifErr);
     }
 
     return json({
       success: true,
       user_id: userId,
       username: cleanUsername,
-      immediate_access: immediate,
+      immediate_access: false,
     });
   } catch (e) {
     console.error("submit-account-request error", e);

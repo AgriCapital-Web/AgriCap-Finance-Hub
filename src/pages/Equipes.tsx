@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Search, Users, Plus, Edit, MoreHorizontal, CheckCircle, XCircle, UserPlus, UserMinus, Briefcase, Wrench } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ROLE_SHORT: Record<string, string> = {
   commercial: "Commercial",
@@ -57,7 +58,7 @@ const Equipes = () => {
       setRegions(regionsData || []);
       setProfiles(profilesData || []);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -106,7 +107,7 @@ const Equipes = () => {
       setSelectedMemberId("");
       fetchMembers(membersEquipe);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 
@@ -117,7 +118,7 @@ const Equipes = () => {
       toast({ title: "Membre retiré" });
       if (membersEquipe) fetchMembers(membersEquipe);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 
@@ -138,7 +139,7 @@ const Equipes = () => {
       setFormData({ nom: "", responsable_id: "", region_id: "", type_equipe: "commercial", actif: true });
       fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 
@@ -161,7 +162,7 @@ const Equipes = () => {
       toast({ title: `Équipe ${newStatus ? "activée" : "désactivée"}` });
       fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 

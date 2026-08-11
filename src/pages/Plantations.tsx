@@ -27,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import PlantationForm from "@/components/forms/PlantationForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Plantations = () => {
   const [plantations, setPlantations] = useState<any[]>([]);
@@ -56,7 +57,7 @@ const Plantations = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);
@@ -109,7 +110,7 @@ const Plantations = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };
@@ -133,7 +134,7 @@ const Plantations = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setDeleteDialogOpen(false);

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logoGreen from "@/assets/logo-green.png";
 import { ArrowLeft } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ const ForgotPassword = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message || "Impossible d'envoyer l'email de réinitialisation",
+        description: getSafeErrorMessage(error) || "Impossible d'envoyer l'email de réinitialisation",
       });
     } finally {
       setIsLoading(false);

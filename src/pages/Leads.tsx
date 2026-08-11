@@ -20,6 +20,7 @@ import { fr } from "date-fns/locale";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Target, TrendingUp, Users, MapPin, PhoneCall, ArrowRight, Copy, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 
 const STATUTS = [
@@ -132,7 +133,7 @@ export default function Leads() {
       setReassignOpen(false); setReassignTo(""); setReassignMotif("");
       toast({ title: "Prospect réaffecté" });
     },
-    onError: (e: any) => toast({ variant: "destructive", title: "Réaffectation refusée", description: e.message }),
+    onError: (e: any) => toast({ variant: "destructive", title: "Réaffectation refusée", description: getSafeErrorMessage(e) }),
   });
 
   const updateStatus = useMutation({
@@ -181,7 +182,7 @@ export default function Leads() {
       setCreateOpen(false);
       toast({ title: navigator.onLine ? "Lead créé" : "Lead enregistré hors ligne" });
     },
-    onError: (e: any) => toast({ variant: "destructive", title: "Création impossible", description: e.message }),
+    onError: (e: any) => toast({ variant: "destructive", title: "Création impossible", description: getSafeErrorMessage(e) }),
   });
 
   const addRelance = useMutation({
@@ -205,7 +206,7 @@ export default function Leads() {
       setRelance({ canal: "appel", resultat: "interesse", commentaire: "", prochaine_relance: "" });
       toast({ title: "Relance enregistrée" });
     },
-    onError: (e: any) => toast({ variant: "destructive", title: "Erreur", description: e.message }),
+    onError: (e: any) => toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) }),
   });
 
   const convertToSouscripteur = (lead: any) => {

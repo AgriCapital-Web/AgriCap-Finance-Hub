@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Users, Plus, Search, Edit, Shield, MoreHorizontal, UserCheck, UserX, KeyRound, AtSign, Trash2 } from "lucide-react";
 import UtilisateurFormNew from "@/components/forms/UtilisateurFormNew";
 import { ROLES as ROLE_KEYS, ROLE_LABELS } from "@/lib/roles";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ALL_ROLES = Object.values(ROLE_KEYS);
 
@@ -63,7 +64,7 @@ const Utilisateurs = () => {
       setUtilisateurs(profilesWithRoles);
       setFilteredUsers(profilesWithRoles);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 
@@ -125,7 +126,7 @@ const Utilisateurs = () => {
       setAdminTarget(null);
       fetchUtilisateurs();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     } finally {
       setBusy(false);
     }
@@ -146,7 +147,7 @@ const Utilisateurs = () => {
       });
       fetchUtilisateurs();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 
@@ -160,7 +161,7 @@ const Utilisateurs = () => {
       setDeleteTarget(null);
       fetchUtilisateurs();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Suppression impossible", description: e.message });
+      toast({ variant: "destructive", title: "Suppression impossible", description: getSafeErrorMessage(e) });
     } finally { setBusy(false); }
   };
 

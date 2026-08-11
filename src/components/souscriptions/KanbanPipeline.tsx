@@ -9,6 +9,7 @@ import { Eye, GripVertical, User, MapPin, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface KanbanPipelineProps {
   souscripteurs: any[];
@@ -73,7 +74,7 @@ const KanbanPipeline = ({ souscripteurs, onRefresh }: KanbanPipelineProps) => {
       });
       onRefresh();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setDraggedItem(null);
     }

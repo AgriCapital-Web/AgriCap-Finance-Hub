@@ -2,8 +2,32 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+
+/** Autorise soit un administrateur authentifié, soit un appel interne (service role / secret cron). */
+async function authorize(req: Request, admin: any): Promise<Response | null> {
+  const deny = (msg: string, status: number) =>
+    new Response(JSON.stringify({ success: false, error: msg }), {
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET");
+
+  if (serviceKey && bearer === serviceKey) return null;
+  if (cronSecret && req.headers.get("x-cron-secret") === cronSecret) return null;
+  if (!bearer) return deny("Non authentifié", 401);
+
+  const { data } = await admin.auth.getUser(bearer);
+  const user = data?.user;
+  if (!user) return deny("Session invalide", 401);
+  const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: user.id });
+  if (!isAdmin) return deny("Accès réservé aux administrateurs", 403);
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,6 +38,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const denied = await authorize(req, supabase);
+    if (denied) return denied;
 
     // Find overdue payments (past due date, still pending)
     const today = new Date().toISOString().split("T")[0];
@@ -101,7 +128,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("payment-reminders error", error);
+    return new Response(JSON.stringify({ error: "Erreur interne" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

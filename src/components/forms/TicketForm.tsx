@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { X } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface TicketFormProps {
   ticket?: any;
@@ -118,7 +119,7 @@ const TicketForm = ({ ticket, plantationId, onSuccess, onCancel }: TicketFormPro
 
       onSuccess();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }

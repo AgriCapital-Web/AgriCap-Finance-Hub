@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtime } from "@/hooks/useRealtime";
 import { logActivity } from "@/utils/traceability";
 import { Search, MapPin, AlertTriangle } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const GestionDepartements = () => {
   const { toast } = useToast();
@@ -30,7 +31,7 @@ const GestionDepartements = () => {
       setRegions(regionsData || []);
       setDepartements(departementsData || []);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,7 @@ const GestionDepartements = () => {
       toast({ title: "Succès", description: `Département ${!currentStatus ? "activé" : "désactivé"}` });
       fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     }
   };
 

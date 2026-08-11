@@ -65,6 +65,19 @@ serve(async (req) => {
       }
     );
 
+    // --- Authentification et autorisation du caller (admin uniquement) ---
+    const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+    if (!token) return jsonResponse({ success: false, error: "Non authentifié" }, 401);
+    const { data: callerData } = await supabase.auth.getUser(token);
+    const caller = callerData?.user;
+    if (!caller) return jsonResponse({ success: false, error: "Session invalide" }, 401);
+    const { data: isAdmin } = await supabase.rpc("is_admin", { _user_id: caller.id });
+    if (!isAdmin) {
+      return jsonResponse({ success: false, error: "Accès réservé aux administrateurs" }, 403);
+    }
+
+
+
     const { 
       email: rawEmail, 
       password, 

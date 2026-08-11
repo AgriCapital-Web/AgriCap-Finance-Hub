@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle, XCircle, Eye, Trash2 } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ROLES = [
   "commercial", "technicien", "chef_equipe_commercial", "chef_equipe_technique",
@@ -42,7 +43,7 @@ const AccountRequests = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
       return;
     }
 
@@ -96,7 +97,7 @@ const AccountRequests = () => {
       setRoleOverride("");
       setActionType(null);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-wave-signature',
 };
 
 serve(async (req) => {
@@ -13,37 +13,50 @@ serve(async (req) => {
   }
 
   try {
-    // Webhook Signature Verification (add WAVE_WEBHOOK_SECRET in Lovable Cloud settings)
+    // Vérification obligatoire de la signature du webhook (fail-closed).
     const signature = req.headers.get('X-Wave-Signature');
     const webhookSecret = Deno.env.get('WAVE_WEBHOOK_SECRET');
-    
-    if (webhookSecret && signature) {
-      const body = await req.text();
-      const encoder = new TextEncoder();
-      const data = encoder.encode(body + webhookSecret);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      if (signature !== expectedSignature) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Invalid webhook signature' 
-          }),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-      
-      // Re-parse body after verification
-      var { transaction_id, telephone, montant, date_paiement, type_paiement, donnees_supplementaires } = JSON.parse(body);
-    } else {
-      // No signature verification configured - parse normally
-      var { transaction_id, telephone, montant, date_paiement, type_paiement, donnees_supplementaires } = await req.json();
+
+    if (!webhookSecret) {
+      console.error('WAVE_WEBHOOK_SECRET non configuré — webhook refusé');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Webhook non configuré' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    if (!signature) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Signature manquante' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const rawBody = await req.text();
+    const sigKey = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(webhookSecret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const sigBuf = await crypto.subtle.sign('HMAC', sigKey, new TextEncoder().encode(rawBody));
+    const expectedSignature = Array.from(new Uint8Array(sigBuf))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    if (signature.toLowerCase().replace(/^sha256=/, '') !== expectedSignature) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Signature invalide' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let parsedBody: any;
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Payload JSON invalide' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { transaction_id, telephone, montant, date_paiement, type_paiement, donnees_supplementaires } = parsedBody;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",

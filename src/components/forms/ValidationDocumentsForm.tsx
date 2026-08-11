@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface ValidationDocumentsFormProps {
   documents: any[];
@@ -47,7 +48,7 @@ const ValidationDocumentsForm = ({ documents, onSuccess }: ValidationDocumentsFo
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(null);

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface NoteDialogProps {
   open: boolean;
@@ -58,7 +59,7 @@ export const NoteDialog = ({
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setIsSaving(false);

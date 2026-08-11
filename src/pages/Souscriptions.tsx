@@ -20,6 +20,7 @@ import { fr } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import PlanteurForm from "@/components/forms/PlanteurForm";
 import KanbanPipeline from "@/components/souscriptions/KanbanPipeline";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const Souscriptions = () => {
   const [souscripteurs, setSouscripteurs] = useState<any[]>([]);
@@ -57,7 +58,7 @@ const Souscriptions = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setLoading(false);
@@ -105,7 +106,7 @@ const Souscriptions = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     }
   };
@@ -129,7 +130,7 @@ const Souscriptions = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setDeleteDialogOpen(false);

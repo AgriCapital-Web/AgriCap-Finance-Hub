@@ -9,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getSafeErrorMessage } from "@/lib/safeError";
 import { 
   Database, 
+
   Download, 
   Upload, 
   Cloud, 
@@ -129,7 +131,7 @@ const GestionBaseDonnees = () => {
       setLastBackup(new Date().toISOString());
       toast({ title: "Succès", description: "Export réalisé avec succès" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setExporting(false);
     }

@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, UserCheck, Sprout } from "lucide-react";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 interface PlantationFormProps {
   plantation?: any;
@@ -147,7 +148,7 @@ const PlantationForm = ({ plantation, onSuccess, onCancel }: PlantationFormProps
       }
       onSuccess();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
     } finally {
       setLoading(false);
     }

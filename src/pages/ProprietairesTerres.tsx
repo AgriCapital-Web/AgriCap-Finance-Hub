@@ -20,6 +20,7 @@ import { useUserZones } from "@/hooks/useUserZones";
 import { uploadFile as uploadToStorage } from "@/utils/storage";
 import { offlineInsert } from "@/lib/offlineWrite";
 import { getCachedItems, STORES, addToSyncQueue } from "@/lib/offlineDb";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const ANNEXES_CONVENTION = [
   { field: "annexe_1_pv_delimitation_croquis", label: "Annexe 1 — Procès-verbal de délimitation / croquis parcellaire" },
@@ -91,7 +92,7 @@ const ProprietairesTerres = () => {
       if (error) throw error;
       setProprietaires(data || []);
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     } finally { setLoading(false); }
   };
 
@@ -298,7 +299,7 @@ const ProprietairesTerres = () => {
       resetForm();
       fetchData();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     } finally { setUploading(false); }
   };
 

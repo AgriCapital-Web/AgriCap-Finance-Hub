@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { uploadFile } from "@/utils/storage";
 import { offlineInsert } from "@/lib/offlineWrite";
 import { SyncStatusBadge, type SyncState } from "@/components/offline/SyncStatusBadge";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const NouvelleSouscription = () => {
   const [etapeActuelle, setEtapeActuelle] = useState(0);
@@ -130,7 +131,7 @@ const NouvelleSouscription = () => {
       toast({
         variant: "destructive",
         title: "Erreur de sauvegarde",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setSaving(false);
@@ -279,7 +280,7 @@ const NouvelleSouscription = () => {
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: error.message,
+        description: getSafeErrorMessage(error),
       });
     } finally {
       setSaving(false);

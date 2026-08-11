@@ -9,6 +9,7 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { RefreshCw, Trash2, Database, Wifi, WifiOff, Clock, AlertTriangle, CheckCircle2, Download, FileDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportToCSV, exportAllOfflineData, type ExportType } from "@/utils/csvExport";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const STORE_LABELS: Record<string, string> = {
   SOUSCRIPTEURS: "Souscripteurs",
@@ -48,7 +49,7 @@ const DiagnosticOffline = () => {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Pas de données en cache pour cet export." });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur d'export", description: e.message });
+      toast({ variant: "destructive", title: "Erreur d'export", description: getSafeErrorMessage(e) });
     } finally {
       setExporting(false);
     }
@@ -61,7 +62,7 @@ const DiagnosticOffline = () => {
       const total = Object.values(results).reduce((acc, r) => acc + (r.count || 0), 0);
       toast({ title: "Export complet", description: `${total} enregistrement(s) exporté(s) en ${Object.keys(results).length} fichier(s) CSV.` });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erreur", description: e.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(e) });
     } finally {
       setExporting(false);
     }

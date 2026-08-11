@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import logoV2 from "@/assets/logo-agricapital-v2.png";
+import { getSafeErrorMessage } from "@/lib/safeError";
 
 const REGIONS_CI = [
   "Abidjan","Agnéby-Tiassa","Bafing","Bagoué","Bélier","Béré","Bounkani","Cavally","Folon",
@@ -66,7 +67,7 @@ export default function PublicLead() {
     const { error, offline } = await offlineInsert("leads", payload);
     setLoading(false);
     if (error) {
-      toast({ variant: "destructive", title: "Erreur", description: error.message });
+      toast({ variant: "destructive", title: "Erreur", description: getSafeErrorMessage(error) });
       return;
     }
     if (offline) {
