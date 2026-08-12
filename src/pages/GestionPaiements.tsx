@@ -1156,7 +1156,6 @@ const GestionPaiements = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Mobile Money">Mobile Money</SelectItem>
-                        <SelectItem value="Wave">Wave</SelectItem>
                         <SelectItem value="Orange Money">Orange Money</SelectItem>
                         <SelectItem value="Virement">Virement bancaire</SelectItem>
                         <SelectItem value="Espèces">Espèces</SelectItem>

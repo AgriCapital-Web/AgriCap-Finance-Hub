@@ -96,7 +96,7 @@ Règles:
 - Pour les problèmes techniques, oriente vers le support: +225 07 59 56 60 87
 - Ne donne jamais d'informations sur d'autres souscripteurs
 - L'offre TerraPalm est entièrement GRATUITE (DA et redevance à 0 FCFA)
-- Les paiements se font par Wave, Orange Money, MTN Money ou KKiaPay`;
+- Les paiements se font exclusivement via KKiaPay (Mobile Money et carte bancaire)`;
     } else {
       systemPrompt = `Tu es l'assistant IA avancé du CRM AgriCapital, une plateforme de gestion agro-industrielle de palmiers à huile en Côte d'Ivoire. Tu aides les administrateurs, commerciaux, comptables et responsables avec:
 

@@ -111,7 +111,7 @@ export const useKkiapay = () => {
         key: KKIAPAY_PUBLIC_KEY,
         sandbox: false, // Mode production
         countries: ['CI'], // Côte d'Ivoire uniquement
-        paymentMethods: ['momo', 'wave', 'card'], // Mobile Money, Wave, Carte
+        paymentMethods: ['momo', 'card'], // Mobile Money, Carte bancaire (KKiaPay uniquement)
         theme: '#00643C' // Couleur AgriCapital
       });
       return true;
