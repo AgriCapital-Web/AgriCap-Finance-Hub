@@ -388,71 +388,83 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>District de Couverture</Label>
-            <Select
-              defaultValue={utilisateur?.district_id}
-              onValueChange={(value) => {
-                setValue("district_id", value);
-                fetchRegions(value);
-                setValue("region_id", undefined);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un district" />
-              </SelectTrigger>
-              <SelectContent>
-                {districts.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {needsCoverage && (
+            <>
+              <div className="space-y-2">
+                <Label>District de Couverture *</Label>
+                <Select
+                  defaultValue={utilisateur?.district_id}
+                  onValueChange={(value) => {
+                    setValue("district_id", value);
+                    fetchRegions(value);
+                    setValue("region_id", undefined);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un district" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {districts.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label>Région de Couverture</Label>
-            <Select
-              defaultValue={utilisateur?.region_id}
-              onValueChange={(value) => setValue("region_id", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une région" />
-              </SelectTrigger>
-              <SelectContent>
-                {regions.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label>Région de Couverture *</Label>
+                <Select
+                  defaultValue={utilisateur?.region_id}
+                  onValueChange={(value) => setValue("region_id", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={regions.length ? "Sélectionner une région" : "Choisir d'abord un district"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regions.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.nom}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Rôles et Permissions</CardTitle>
+          <CardTitle>Rôles officiels</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded-lg">
-            {ROLES.map((role) => (
-              <div key={role.value} className="flex items-center space-x-2">
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 border rounded-lg">
+            {rolesDisponibles.map((role) => (
+              <div key={role.code} className="flex items-start space-x-2">
                 <Checkbox
-                  id={role.value}
-                  checked={selectedRoles.includes(role.value)}
-                  onCheckedChange={() => toggleRole(role.value)}
+                  id={role.code}
+                  checked={selectedRoles.includes(role.code)}
+                  onCheckedChange={() => toggleRole(role.code)}
                 />
-                <label htmlFor={role.value} className="text-sm cursor-pointer">
-                  {role.label}
+                <label htmlFor={role.code} className="text-sm cursor-pointer leading-tight">
+                  <span className="font-medium">{role.nom}</span>
+                  <Badge variant="outline" className="ml-2 text-[10px]">
+                    Niveau {role.niveau}
+                  </Badge>
+                  <span className="block text-xs text-muted-foreground">{role.description}</span>
                 </label>
               </div>
             ))}
           </div>
+          {selectedRoles.length === 0 && (
+            <p className="text-sm text-destructive">Au moins un rôle officiel doit être attribué.</p>
+          )}
         </CardContent>
       </Card>
+
 
       <div className="flex justify-end gap-4">
         <Button type="button" variant="secondary" onClick={onCancel}>
