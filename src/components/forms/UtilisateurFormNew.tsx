@@ -141,8 +141,21 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
   };
 
   const onSubmit = async (data: any) => {
+    if (selectedRoles.length === 0) {
+      toast({ variant: "destructive", title: "Rôle requis", description: "Sélectionnez au moins un rôle officiel." });
+      return;
+    }
+    if (needsCoverage && !data.region_id && !utilisateur?.region_id) {
+      toast({
+        variant: "destructive",
+        title: "Couverture requise",
+        description: "Les profils Commercial et Technique doivent avoir un district et une région de couverture.",
+      });
+      return;
+    }
     setLoading(true);
     try {
+
       let photoUrl = utilisateur?.photo_url;
 
       // Upload photo si présent
