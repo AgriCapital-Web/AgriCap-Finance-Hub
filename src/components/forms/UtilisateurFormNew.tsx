@@ -188,8 +188,9 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
 
         // Update roles
         const uid = utilisateur.user_id || utilisateur.id;
+        const anciensRoles = normalizeRoles(utilisateur?.user_roles?.map((r: any) => r.role) || []);
         await (supabase as any).from("user_roles").delete().eq("user_id", uid);
-        
+
         for (const role of selectedRoles) {
           await (supabase as any).from("user_roles").insert({
             user_id: uid,
@@ -197,7 +198,18 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
           });
         }
 
+        await logAdminAction({
+          action: "MODIFICATION_UTILISATEUR",
+          entite: "profiles",
+          entite_id: utilisateur.id,
+          cible_user_id: uid,
+          cible_libelle: data.nom_complet,
+          ancienne_valeur: { roles: anciensRoles, departement: utilisateur?.departement },
+          nouvelle_valeur: { roles: selectedRoles, departement: data.departement },
+        });
+
         toast({ title: "Succès", description: "Utilisateur modifié" });
+
       } else {
         const tempPassword = data.password || (
           crypto.randomUUID().replace(/-/g, '').slice(0, 16) + 'A1!'
