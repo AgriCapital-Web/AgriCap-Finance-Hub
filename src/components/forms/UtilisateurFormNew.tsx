@@ -49,17 +49,6 @@ interface UtilisateurFormProps {
   onCancel: () => void;
 }
 
-const ROLES = [
-  { value: "super_admin", label: "Super Admin" },
-  { value: "directeur_tc", label: "Directeur TC" },
-  { value: "responsable_zone", label: "Responsable Zone" },
-  { value: "comptable", label: "Comptable" },
-  { value: "commercial", label: "Commercial" },
-  { value: "service_client", label: "Service Client" },
-  { value: "operations", label: "Opérations" },
-  { value: "user", label: "Utilisateur" }
-];
-
 const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFormProps) => {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(userFormSchema),
@@ -68,17 +57,55 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>(
-    utilisateur?.user_roles?.map((r: any) => r.role) || []
+    normalizeRoles(utilisateur?.user_roles?.map((r: any) => r.role) || []),
   );
   const [districts, setDistricts] = useState<any[]>([]);
   const [regions, setRegions] = useState<any[]>([]);
   const [equipes, setEquipes] = useState<any[]>([]);
   const [photoPreview, setPhotoPreview] = useState<string>(utilisateur?.photo_url || "");
   const relationRH = watch("relation_rh");
+  const departementSelectionne = watch("departement") ?? utilisateur?.departement;
+
+  // Référentiels dynamiques (base de données, repli statique avant migration)
+  const { departements: departementsEntreprise, requiresCoverage } = useDepartementsEntreprise();
+  const { roles: rolesDisponibles } = useAppRoles();
+
+  // Affichage conditionnel : couverture territoriale pour Commercial / Technique
+  // ou pour tout rôle disposant d'une couverture terrain.
+  const needsCoverage = useMemo(
+    () =>
+      requiresCoverage(departementSelectionne) ||
+      selectedRoles.some((r) => TERRITORIAL_ROLES.includes(r)),
+    [departementSelectionne, selectedRoles, requiresCoverage],
+  );
+
+  const isCommercialProfile = useMemo(
+    () =>
+      departementSelectionne === "Commercial" ||
+      selectedRoles.some((r) =>
+        [APP_ROLES.COMMERCIAL, APP_ROLES.CHEF_EQUIPE_COMMERCIAL, APP_ROLES.RESPONSABLE_COMMERCIAL].includes(r as any),
+      ),
+    [departementSelectionne, selectedRoles],
+  );
+
+  const isTechniqueProfile = useMemo(
+    () =>
+      departementSelectionne === "Technique" ||
+      selectedRoles.includes(APP_ROLES.CHEF_EQUIPE_TECHNIQUE),
+    [departementSelectionne, selectedRoles],
+  );
+
+  const equipesFiltrees = useMemo(() => {
+    if (isCommercialProfile) return equipes.filter((e) => !e.type_equipe || e.type_equipe === "commerciale");
+    if (isTechniqueProfile) return equipes.filter((e) => !e.type_equipe || e.type_equipe === "technique");
+    return equipes;
+  }, [equipes, isCommercialProfile, isTechniqueProfile]);
 
   useEffect(() => {
     fetchDistricts();
     fetchEquipes();
+    if (utilisateur?.district_id) fetchRegions(utilisateur.district_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDistricts = async () => {
@@ -101,16 +128,6 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
     if (data) setEquipes(data);
   };
 
-  // Liste des départements de l'entreprise (statique)
-  const departementsEntreprise = [
-    { id: "1", nom: "Direction Générale" },
-    { id: "2", nom: "Commercial" },
-    { id: "3", nom: "Technique" },
-    { id: "4", nom: "Finance & Comptabilité" },
-    { id: "5", nom: "Opérations" },
-    { id: "6", nom: "Service Client" },
-    { id: "7", nom: "Ressources Humaines" }
-  ];
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
