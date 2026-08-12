@@ -392,7 +392,7 @@ const UtilisateurFormNew = ({ utilisateur, onSuccess, onCancel }: UtilisateurFor
                 <SelectValue placeholder="Sélectionner une équipe" />
               </SelectTrigger>
               <SelectContent>
-                {equipes.map((eq) => (
+                {equipesFiltrees.map((eq) => (
                   <SelectItem key={eq.id} value={eq.id}>
                     {eq.nom}
                   </SelectItem>
