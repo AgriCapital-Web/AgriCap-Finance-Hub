@@ -602,7 +602,6 @@ const PaiementForm = ({ paiement, onSuccess, onCancel }: PaiementFormProps) => {
                   <SelectItem value="orange_money">Orange Money</SelectItem>
                   <SelectItem value="mtn_money">MTN Money</SelectItem>
                   <SelectItem value="moov_money">Moov Money</SelectItem>
-                  <SelectItem value="wave">Wave</SelectItem>
                 </SelectContent>
               </Select>
             </div>
