@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,9 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { getSafeErrorMessage } from "@/lib/safeError";
+import { useAppRoles, useDepartementsEntreprise } from "@/hooks/useReferentiels";
+import { normalizeRoles, TERRITORIAL_ROLES, ROLES as APP_ROLES } from "@/lib/roles";
+import { logAdminAction } from "@/lib/audit";
+
 
 const userFormSchema = z.object({
   username: z.string()
