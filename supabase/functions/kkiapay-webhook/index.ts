@@ -162,6 +162,53 @@ serve(async (req) => {
     }
     
     console.log(`Payment ${paiement.id} updated to: ${newStatus}`);
+
+    // --- Activation temps réel (0 jour) du compte souscripteur ---
+    let activation: any = null;
+    if (newStatus === "valide") {
+      // 1) Finalisation métier centralisée (échéances, commissions, statuts)
+      const { data: finalized, error: finalizeError } = await supabase.rpc('finalize_portal_payment', {
+        _paiement_id: paiement.id,
+        _transaction_id: transactionId,
+        _provider_amount: amount ?? paiement.montant,
+        _metadata: updateData.metadata,
+        _validated_at: new Date().toISOString(),
+      });
+      if (finalizeError) console.error("finalize_portal_payment:", finalizeError.message);
+      else activation = finalized;
+
+      // 2) Activation immédiate du compte au paiement du dépôt initial
+      if (paiement.souscripteur_id && (paiement.est_depot_initial || paiement.type_paiement === 'DA')) {
+        const nowIso = new Date().toISOString();
+        const { error: activationError } = await supabase
+          .from('souscripteurs')
+          .update({
+            compte_actif: true,
+            da_paye_at: nowIso,
+            statut: 'actif',
+            statut_global: 'actif',
+            updated_at: nowIso,
+          })
+          .eq('id', paiement.souscripteur_id);
+        if (activationError) console.error("Activation compte:", activationError.message);
+        else console.log(`Compte souscripteur ${paiement.souscripteur_id} activé immédiatement`);
+      }
+    }
+
+    // Trace de l'événement KKiaPay (source unique d'agrégateur)
+    await supabase.from('kkiapay_events').insert({
+      transaction_id: transactionId,
+      reference: reference ?? paiement.reference,
+      paiement_id: paiement.id,
+      status: status ?? newStatus,
+      amount: amount ?? paiement.montant,
+      fees: fees ?? 0,
+      source: source ?? 'kkiapay',
+      signature_valid: true,
+      raw_payload: body,
+      processed: true,
+      processed_at: new Date().toISOString(),
+    });
     
     // Log in historique_activites
     await supabase.from('historique_activites').insert({
@@ -172,9 +219,10 @@ serve(async (req) => {
     });
     
     return new Response(
-      JSON.stringify({ success: true, paiement_id: paiement.id, new_status: newStatus }),
+      JSON.stringify({ success: true, paiement_id: paiement.id, new_status: newStatus, activation }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
+
     
   } catch (error: any) {
     console.error("Webhook error:", error);
