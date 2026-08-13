@@ -37,11 +37,18 @@ const AIAssistant = ({ mode, context }: AIAssistantProps) => {
   }, [isOpen]);
 
   const streamChat = async (userMessages: Message[]) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error("Veuillez vous connecter pour utiliser l'assistant IA.");
+    }
+
     const resp = await fetch(AI_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ messages: userMessages, context, mode: mode === "admin" ? "admin" : "subscriber" }),
     });
