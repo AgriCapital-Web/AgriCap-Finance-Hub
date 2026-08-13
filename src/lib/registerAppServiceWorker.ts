@@ -21,5 +21,21 @@ export async function registerAppServiceWorker() {
     return;
   }
   const { registerSW } = await import("virtual:pwa-register");
-  registerSW({ immediate: true });
+  const updateSW = registerSW({
+    immediate: true,
+    // Mise à jour automatique et silencieuse des PWA déjà installées
+    onNeedRefresh() {
+      void updateSW(true);
+    },
+    onRegisteredSW(_url, registration) {
+      if (!registration) return;
+      // Vérifie une nouvelle version au démarrage, au retour au premier plan et toutes les 15 min
+      const check = () => void registration.update();
+      check();
+      setInterval(check, 15 * 60 * 1000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") check();
+      });
+    },
+  });
 }
