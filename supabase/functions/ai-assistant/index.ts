@@ -12,25 +12,28 @@ serve(async (req) => {
   try {
     const { messages, context, mode } = await req.json();
 
+    // Authentification obligatoire pour TOUS les modes (quota IA payant)
+    const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!token || token === anonKey) {
+      return new Response(JSON.stringify({ error: "Non authentifié" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: userData } = await authClient.auth.getUser(token);
+    const caller = userData?.user;
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Session invalide" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Mode "admin" : accès réservé aux administrateurs authentifiés (données agrégées sensibles)
     if (mode === "admin") {
-      const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
-      if (!token) {
-        return new Response(JSON.stringify({ error: "Non authentifié" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const authClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
-      const { data: userData } = await authClient.auth.getUser(token);
-      const caller = userData?.user;
-      if (!caller) {
-        return new Response(JSON.stringify({ error: "Session invalide" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const { data: isAdmin } = await authClient.rpc("is_admin", { _user_id: caller.id });
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: "Accès réservé aux administrateurs" }), {
