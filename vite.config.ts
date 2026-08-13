@@ -21,7 +21,11 @@ export default defineConfig(({ mode }) => ({
       manifest: false, // Désactiver le manifest généré - on utilise des manifests dynamiques
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         navigateFallbackDenylist: [/^\/~oauth/],
+
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*supabase\.co\/rest\/.*/i,
