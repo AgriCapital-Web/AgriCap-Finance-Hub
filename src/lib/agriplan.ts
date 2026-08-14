@@ -1,22 +1,35 @@
 /**
  * AGRIPLAN — SOURCE DE VÉRITÉ UNIQUE (côté client)
  *
- * Offre AgriPlan reconfigurée sur 36 mois / 3 ans :
- *  - Mise en place initiale : 200 000 FCFA (paiement initial, DI AgriPlan)
- *  - Accompagnement : 10 000 FCFA par trimestre × 12 trimestres = 120 000 FCFA
- *  - Total : 320 000 FCFA
+ * Structure validée (flyer AgriPlan) :
+ *  A. Mise en place de la plantation : 230 000 FCFA en 4 échéances
+ *     1. Acompte                 50 000 FCFA — à la commande
+ *     2. Mise en œuvre           80 000 FCFA — après piquetage / avant mobilisation
+ *     3. Paiement intermédiaire  50 000 FCFA — échéance suivante
+ *     4. Solde de mise en place  50 000 FCFA — dernière échéance
+ *  B. Suivi et encadrement : 10 000 FCFA / trimestre pendant 36 mois (12 trimestres) = 120 000 FCFA
+ *  Prix global de l'offre : 350 000 FCFA
  *
  * Les montants ne doivent JAMAIS être codés en dur ailleurs : ils proviennent
- * de la table `configurations_systeme` (catégorie `agriplan`) via `useAgriPlanConfig`.
+ * de la table `configurations_systeme` (catégorie `agriplan`) via `useAgriPlan`.
  * Les constantes ci-dessous ne servent que de valeurs de repli avant migration.
  */
 
 export const AGRIPLAN_OFFRE_CODE = "agri-plan";
 
+export interface AgriPlanTranche {
+  numero: number;
+  libelle: string;
+  montant: number;
+  declencheur: string;
+}
+
 export interface AgriPlanConfig {
-  /** Mise en place initiale (FCFA) */
-  montantInitial: number;
-  /** Accompagnement par trimestre (FCFA) */
+  /** Mise en place de la plantation (FCFA) */
+  montantMiseEnPlace: number;
+  /** Échéancier de la mise en place */
+  tranchesMiseEnPlace: AgriPlanTranche[];
+  /** Suivi & encadrement par trimestre (FCFA) */
   montantTrimestre: number;
   /** Nombre de trimestres */
   nbTrimestres: number;
@@ -25,7 +38,13 @@ export interface AgriPlanConfig {
 }
 
 export const AGRIPLAN_DEFAULT_CONFIG: AgriPlanConfig = {
-  montantInitial: 200_000,
+  montantMiseEnPlace: 230_000,
+  tranchesMiseEnPlace: [
+    { numero: 1, libelle: "Acompte", montant: 50_000, declencheur: "À la commande" },
+    { numero: 2, libelle: "Mise en œuvre", montant: 80_000, declencheur: "Après piquetage / avant mobilisation pour la plantation" },
+    { numero: 3, libelle: "Paiement intermédiaire", montant: 50_000, declencheur: "Échéance suivante" },
+    { numero: 4, libelle: "Solde de mise en place", montant: 50_000, declencheur: "Dernière échéance" },
+  ],
   montantTrimestre: 10_000,
   nbTrimestres: 12,
   dureeMois: 36,
@@ -38,12 +57,11 @@ export interface AgriPlanTotaux {
 }
 
 export function computeAgriPlanTotaux(cfg: AgriPlanConfig): AgriPlanTotaux {
+  const miseEnPlace = cfg.tranchesMiseEnPlace.length
+    ? cfg.tranchesMiseEnPlace.reduce((s, t) => s + t.montant, 0)
+    : cfg.montantMiseEnPlace;
   const accompagnement = cfg.montantTrimestre * cfg.nbTrimestres;
-  return {
-    miseEnPlace: cfg.montantInitial,
-    accompagnement,
-    total: cfg.montantInitial + accompagnement,
-  };
+  return { miseEnPlace, accompagnement, total: miseEnPlace + accompagnement };
 }
 
 export type AgriPlanEcheanceStatut = "a_venir" | "du" | "paye" | "en_retard" | "annule";
@@ -51,8 +69,10 @@ export type AgriPlanEcheanceStatut = "a_venir" | "du" | "paye" | "en_retard" | "
 export interface AgriPlanEcheance {
   id: string;
   numero_echeance: number;
-  /** 0 = paiement initial, 1..N = trimestres */
+  /** mise_en_place = tranches A, accompagnement = trimestres B */
   type: "mise_en_place" | "accompagnement";
+  libelle: string;
+  declencheur: string;
   annee: number;
   trimestre: number;
   date_echeance: string; // ISO yyyy-mm-dd
@@ -78,7 +98,7 @@ function addMonths(date: Date, months: number): Date {
 
 /**
  * Génère l'échéancier prévisionnel AgriPlan :
- * 1 paiement initial + N échéances trimestrielles.
+ * 4 tranches de mise en place + N échéances trimestrielles d'accompagnement.
  */
 export function buildAgriPlanEcheancier(
   cfg: AgriPlanConfig,
@@ -88,21 +108,27 @@ export function buildAgriPlanEcheancier(
   const start = typeof dateDebut === "string" ? new Date(dateDebut) : dateDebut;
   const rows: AgriPlanEcheance[] = [];
 
-  rows.push({
-    id: "agriplan-mise-en-place",
-    numero_echeance: 0,
-    type: "mise_en_place",
-    annee: 1,
-    trimestre: 0,
-    date_echeance: iso(start),
-    montant: cfg.montantInitial,
-    statut: start <= today ? "du" : "a_venir",
-    date_paiement: null,
-    montant_paye: 0,
-    solde: cfg.montantInitial,
-    jours_retard: 0,
-    reference_paiement: null,
-    moyen_paiement: null,
+  cfg.tranchesMiseEnPlace.forEach((t, i) => {
+    const echeance = addMonths(start, i); // 1 tranche / mois par défaut
+    const retard = Math.floor((today.getTime() - echeance.getTime()) / 86_400_000);
+    rows.push({
+      id: `agriplan-mep-${t.numero}`,
+      numero_echeance: t.numero,
+      type: "mise_en_place",
+      libelle: t.libelle,
+      declencheur: t.declencheur,
+      annee: 1,
+      trimestre: 0,
+      date_echeance: iso(echeance),
+      montant: t.montant,
+      statut: retard > 0 ? "en_retard" : echeance <= today ? "du" : "a_venir",
+      date_paiement: null,
+      montant_paye: 0,
+      solde: t.montant,
+      jours_retard: retard > 0 ? retard : 0,
+      reference_paiement: null,
+      moyen_paiement: null,
+    });
   });
 
   for (let i = 1; i <= cfg.nbTrimestres; i++) {
@@ -110,8 +136,10 @@ export function buildAgriPlanEcheancier(
     const retard = Math.floor((today.getTime() - echeance.getTime()) / 86_400_000);
     rows.push({
       id: `agriplan-t${i}`,
-      numero_echeance: i,
+      numero_echeance: cfg.tranchesMiseEnPlace.length + i,
       type: "accompagnement",
+      libelle: `Suivi trimestre ${i}`,
+      declencheur: `Trimestre ${((i - 1) % 4) + 1} — année ${Math.ceil(i / 4)}`,
       annee: Math.ceil(i / 4),
       trimestre: ((i - 1) % 4) + 1,
       date_echeance: iso(echeance),
@@ -152,13 +180,15 @@ export function summarizeAgriPlan(echeances: AgriPlanEcheance[]): AgriPlanSynthe
   };
 }
 
-/** Prestations incluses / exclues du forfait AgriPlan */
+/** Prestations incluses / exclues du forfait AgriPlan (flyer) */
 export const AGRIPLAN_INCLUS: string[] = [
-  "Mise en place initiale de la plantation",
-  "Fourniture des plants / prestation de pépinière selon configuration",
-  "Accompagnement trimestriel pendant 36 mois",
-  "Visites de parcelle et conseils techniques",
-  "Comptes rendus de visite et suivi de l'évolution",
+  "Inspection de la parcelle",
+  "Piquetage professionnel",
+  "Trouaison professionnelle",
+  "Fourniture des plants",
+  "Transport des plants",
+  "Assistance mise en place / plantation",
+  "Suivi et encadrement pendant 36 mois",
 ];
 
 export const AGRIPLAN_EXCLUS: string[] = [
