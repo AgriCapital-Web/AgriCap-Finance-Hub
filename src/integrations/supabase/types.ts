@@ -138,6 +138,135 @@ export type Database = {
         }
         Relationships: []
       }
+      agriplant_suivi_historique: {
+        Row: {
+          acteur_id: string | null
+          action: string
+          ancienne_valeur: string | null
+          champ: string | null
+          commentaire: string | null
+          created_at: string
+          id: string
+          nouvelle_valeur: string | null
+          suivi_id: string
+        }
+        Insert: {
+          acteur_id?: string | null
+          action: string
+          ancienne_valeur?: string | null
+          champ?: string | null
+          commentaire?: string | null
+          created_at?: string
+          id?: string
+          nouvelle_valeur?: string | null
+          suivi_id: string
+        }
+        Update: {
+          acteur_id?: string | null
+          action?: string
+          ancienne_valeur?: string | null
+          champ?: string | null
+          commentaire?: string | null
+          created_at?: string
+          id?: string
+          nouvelle_valeur?: string | null
+          suivi_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agriplant_suivi_historique_suivi_id_fkey"
+            columns: ["suivi_id"]
+            isOneToOne: false
+            referencedRelation: "agriplant_suivis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agriplant_suivis: {
+        Row: {
+          actions_recommandees: string | null
+          created_at: string
+          created_by: string | null
+          date_visite: string
+          documents: Json
+          id: string
+          meteo: string | null
+          note_sante: number | null
+          observations: string | null
+          photos: Json
+          plantation_id: string
+          prochaine_visite: string | null
+          responsable_id: string | null
+          souscripteur_id: string | null
+          statut: string
+          titre: string
+          type_suivi: string
+          updated_at: string
+        }
+        Insert: {
+          actions_recommandees?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_visite?: string
+          documents?: Json
+          id?: string
+          meteo?: string | null
+          note_sante?: number | null
+          observations?: string | null
+          photos?: Json
+          plantation_id: string
+          prochaine_visite?: string | null
+          responsable_id?: string | null
+          souscripteur_id?: string | null
+          statut?: string
+          titre: string
+          type_suivi?: string
+          updated_at?: string
+        }
+        Update: {
+          actions_recommandees?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_visite?: string
+          documents?: Json
+          id?: string
+          meteo?: string | null
+          note_sante?: number | null
+          observations?: string | null
+          photos?: Json
+          plantation_id?: string
+          prochaine_visite?: string | null
+          responsable_id?: string | null
+          souscripteur_id?: string | null
+          statut?: string
+          titre?: string
+          type_suivi?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agriplant_suivis_plantation_id_fkey"
+            columns: ["plantation_id"]
+            isOneToOne: false
+            referencedRelation: "plantations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agriplant_suivis_souscripteur_id_fkey"
+            columns: ["souscripteur_id"]
+            isOneToOne: false
+            referencedRelation: "souscripteurs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agriplant_suivis_souscripteur_id_fkey"
+            columns: ["souscripteur_id"]
+            isOneToOne: false
+            referencedRelation: "v_souscripteur_synthese"
+            referencedColumns: ["souscripteur_id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           annee_contrat: number | null
