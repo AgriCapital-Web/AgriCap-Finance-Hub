@@ -137,14 +137,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: { message: 'Identifiants incorrects (mode hors ligne)' } };
       }
 
-      // Online: resolve username to email (via edge function sécurisée)
+      // Online: resolve username to email (edge function sécurisée, repli RPC)
       if (!usernameOrEmail.includes('@')) {
-        const { data: resolveData, error: rpcError } = await supabase.functions.invoke('resolve-username', {
-          body: { username: usernameOrEmail },
-        });
-        const resolved = (resolveData as any)?.email;
+        let resolved: string | null = null;
 
-        if (rpcError || !resolved) {
+        try {
+          const { data: resolveData } = await supabase.functions.invoke('resolve-username', {
+            body: { username: usernameOrEmail },
+          });
+          resolved = ((resolveData as any)?.email as string) || null;
+        } catch {
+          resolved = null;
+        }
+
+        if (!resolved) {
+          const { data: rpcEmail } = await (supabase as any).rpc('resolve_username_email', {
+            _username: usernameOrEmail,
+          });
+          resolved = (rpcEmail as string) || null;
+        }
+
+        if (!resolved) {
           toast({
             variant: 'destructive',
             title: 'Connexion impossible',
@@ -152,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           return { error: { message: "Nom d'utilisateur introuvable" } };
         }
-        email = resolved as string;
+        email = resolved;
       }
 
       const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
